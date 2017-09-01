@@ -14,13 +14,16 @@
 * limitations under the License.
 */
 
-#if!defined __NAMESRVUTIL_H__
+#ifndef __NAMESRVUTIL_H__
 #define __NAMESRVUTIL_H__
 
-namespace NamesrvUtil
+namespace rmq
 {
-	const char* NAMESPACE_ORDER_TOPIC_CONFIG = "ORDER_TOPIC_CONFIG";
-	const char*  NAMESPACE_PROJECT_CONFIG = "PROJECT_CONFIG";
-};
+	namespace NamesrvUtil
+	{
+		const char* NAMESPACE_ORDER_TOPIC_CONFIG = "ORDER_TOPIC_CONFIG";
+		const char*  NAMESPACE_PROJECT_CONFIG = "PROJECT_CONFIG";
+	};
+}
 
 #endif

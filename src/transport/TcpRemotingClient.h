@@ -14,129 +14,139 @@
 * limitations under the License.
 */
 
-#if!defined __TCPREMOTINGCLIENT_H__
+#ifndef __TCPREMOTINGCLIENT_H__
 #define __TCPREMOTINGCLIENT_H__
 
 #include <map>
 #include <string>
 #include <list>
+
+#include "RocketMQClient.h"
 #include "SocketUtil.h"
+#include "Epoller.h"
 #include "RemotingCommand.h"
 #include "Thread.h"
 #include "ThreadPool.h"
 #include "ThreadPoolWork.h"
 #include "RemoteClientConfig.h"
+#include "TcpTransport.h"
+#include "ScopedLock.h"
+#include "KPRUtil.h"
+#include "Semaphore.h"
+#include "ResponseFuture.h"
 
-class TcpTransport;
-class InvokeCallback;
-class TcpRemotingClient;
-class ResponseFuture;
-class TcpRequestProcessor;
-
-class ProcessDataWork : public ThreadPoolWork
+namespace rmq
 {
-public:
-	ProcessDataWork(TcpRemotingClient* pClient,std::string* pData);
-	virtual ~ProcessDataWork();
-	virtual void Do();
+    class TcpTransport;
+    class InvokeCallback;
+    class TcpRemotingClient;
+    class ResponseFuture;
+    class TcpRequestProcessor;
 
-private:
-	TcpRemotingClient* m_pClient;
-	std::string* m_pData;
-};
+    class ProcessDataWork : public kpr::ThreadPoolWork
+    {
+    public:
+        ProcessDataWork(TcpRemotingClient* pClient, TcpTransport* pTts, std::string* pData);
+        virtual ~ProcessDataWork();
+        virtual void Do();
 
-/**
-* 远程通信Client
-*
-*/
-class TcpRemotingClient
-{
-public:
-	TcpRemotingClient(const RemoteClientConfig& config);
-	virtual ~TcpRemotingClient();
-	virtual void start();
-	virtual void shutdown();
+    private:
+        TcpRemotingClient* m_pClient;
+		TcpTransport* m_pTts;
+        std::string* m_pData;
+    };
+	typedef kpr::RefHandleT<ProcessDataWork> ProcessDataWorkPtr;
 
-	//TODO 可能不需要这个两个函数
-	void updateNameServerAddressList(const std::list<std::string>& addrs);
-	std::list<std::string> getNameServerAddressList();
+    class TcpRemotingClient
+    {
+		class EventThread : public kpr::Thread
+        {
+        public:
+            EventThread(TcpRemotingClient& client)
+                : Thread("NetThread"), m_client(client)
+            {
+            }
 
-	RemotingCommand* invokeSync(const std::string& addr,
-								RemotingCommand* request,
-								int timeoutMillis) ;
+            void Run()
+            {
+                m_client.run();
+            }
 
-	int invokeAsync(const std::string& addr,
-					RemotingCommand* request,
-					int timeoutMillis,
-					InvokeCallback* invokeCallback);
+        private :
+            TcpRemotingClient& m_client;
+        };
+        friend class EventThread;
+        friend class ProcessDataWork;
 
-	int invokeOneway(const std::string& addr,
-					 RemotingCommand* request,
-					 int timeoutMillis);
-
-	void registerProcessor(int requestCode, TcpRequestProcessor* pProcessor);
-
-	class EventThread : public kpr::Thread
-	{
 	public:
-		EventThread(TcpRemotingClient& client)
-			:Thread("EventThread"),m_client(client)
-		{
-		}
+		static const int s_LockTimeoutMillis = 3000;
+		static const int s_CheckIntervalMillis = 1000;
+		static const int s_ClientOnewaySemaphoreValue = 2048;
+		static const int s_ClientAsyncSemaphoreValue = 2048;
 
-		void Run()
-		{
-			m_client.Run();
-		}
+    public:
+        TcpRemotingClient(const RemoteClientConfig& config);
+        virtual ~TcpRemotingClient();
+        virtual void start();
+        virtual void shutdown();
 
-	private :
-		TcpRemotingClient& m_client;
-	};
+        void updateNameServerAddressList(const std::vector<std::string>& addrs);
+        std::vector<std::string> getNameServerAddressList();
+		void registerProcessor(int requestCode, TcpRequestProcessor* pProcessor);
 
-	friend class EventThread;
-	friend class ProcessDataWork;
+        RemotingCommand* invokeSync(const std::string& addr, RemotingCommand* pRequest, int timeoutMillis) ;
+        void invokeAsync(const std::string& addr, RemotingCommand* pRequest, int timeoutMillis, InvokeCallback* invokeCallback);
+        int invokeOneway(const std::string& addr, RemotingCommand* pRequest, int timeoutMillis);
 
-private:
-	int SendCmd(TcpTransport* pTts,RemotingCommand* msg,int timeoutMillis);
-	void RemoveTTS(TcpTransport* pTts);
-	void ProcessData(std::string* pData);
-	void HandleSocketEvent(fd_set wset);
-	void HandleTimerEvent(unsigned long long tm);
-	void UpdateEvent();
-	void Run();
-	void processMessageReceived(RemotingCommand* pCmd);
-	void processRequestCommand(RemotingCommand* pCmd);
-	void processResponseCommand(RemotingCommand* pCmd);
-	TcpTransport* GetAndCreateTransport(const std::string& addr);
+    private:
+		void run();
+        int  sendCmd(TcpTransport* pTts, RemotingCommand* pRequest, int timeoutMillis);
+        void removeTTS(TcpTransport* pTts, bool isDisConnected = false);
+        void processData(TcpTransport* pTts, std::string* data);
+        void handleTimerEvent();
+		void scanResponseTable();
+		void scanCloseTransportTable();
 
-	RemotingCommand* invokeSyncImpl(TcpTransport* pTts,
-									RemotingCommand* request,
-									int timeoutMillis) ;
+        void processMessageReceived(TcpTransport* pTts, RemotingCommand* pCmd);
+        void processRequestCommand(TcpTransport* pTts, RemotingCommand* pCmd);
+        void processResponseCommand(TcpTransport* pTts, RemotingCommand* pCmd);
 
-	int invokeAsyncImpl(TcpTransport* pTts,
-						RemotingCommand* request,
-						int timeoutMillis,
-						InvokeCallback* pInvokeCallback);
+        TcpTransport* getAndCreateTransport(const std::string& addr, int timeoutMillis);
+		TcpTransport* getAndCreateNameserverTransport(int timeoutMillis);
+		TcpTransport* createTransport(const std::string& addr, int timeoutMillis);
 
-	int invokeOnewayImpl(TcpTransport* pTts,
-						 RemotingCommand* request,
-						 int timeoutMillis);
+        RemotingCommand* invokeSyncImpl(TcpTransport* pTts, RemotingCommand* pRequest, int timeoutMillis) ;
+        void invokeAsyncImpl(TcpTransport* pTts, RemotingCommand* pRequest, int timeoutMillis, InvokeCallback* pInvokeCallback);
+        int invokeOnewayImpl(TcpTransport* pTts, RemotingCommand* pRequest, int timeoutMillis);
 
-private:
-	bool m_stop;
-	fd_set m_rset;
-	SOCKET m_maxFd;
-	kpr::Mutex m_tcpTransportTableMutex;
-	kpr::Mutex m_responseTableMutex;
+    private:
+        bool m_stop;
+        kpr::Epoller m_epoller;
+        RemoteClientConfig m_config;
 
-	std::map<int,ResponseFuture*> m_responseTable;
-	std::map<std::string ,TcpTransport*> m_tcpTransportTable;
-	std::list<std::string> m_namesrvAddrList;
-	kpr::ThreadPool* m_pThreadPool;
-	RemoteClientConfig m_config;	
-	TcpRequestProcessor* m_pDefaultRequestProcessor;// 默认请求代码处理器	
-	std::map<int, TcpRequestProcessor*> m_processorTable;// 注册的各个RPC处理器
-	kpr::Thread_var m_EventThread;
-};
+		kpr::Semaphore m_semaphoreOneway;
+		kpr::Semaphore m_semaphoreAsync;
+
+        std::map<std::string , TcpTransport*> m_transportTable;
+        kpr::RWMutex m_transportTableLock;
+
+		std::list<TcpTransport*> m_closeTransportTable;
+		kpr::Mutex m_closeTransportTableLock;
+
+        std::map<int, ResponseFuturePtr> m_responseTable;
+        kpr::RWMutex m_responseTableLock;
+
+        std::vector<std::string> m_namesrvAddrList;
+		kpr::AtomicInteger m_namesrvIndex;
+		kpr::AtomicReference<std::string> m_namesrvAddrChoosed;
+		kpr::Mutex m_namesrvAddrChoosedLock;
+
+        kpr::ThreadPoolPtr m_pNetThreadPool;
+		kpr::ThreadPtr m_pEventThread;
+
+        TcpRequestProcessor* m_pDefaultRequestProcessor;
+        std::map<int, TcpRequestProcessor*> m_processorTable;
+    };
+}
 
 #endif

@@ -13,7 +13,6 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 */
-
 #include "ProducerInvokeCallback.h"
 #include "ResponseFuture.h"
 #include "SendResult.h"
@@ -22,72 +21,81 @@
 #include "MQClientException.h"
 #include "RemotingCommand.h"
 
+namespace rmq
+{
+
 ProducerInvokeCallback::ProducerInvokeCallback(SendCallback* pSendCallBack,
-	MQClientAPIImpl*pMQClientAPIImpl,
-	const std::string& topic,
-	const std::string& brokerName)
-	:m_pSendCallBack(pSendCallBack),
-	m_pMQClientAPIImpl(pMQClientAPIImpl),
-	m_topic(topic),
-	m_brokerName(brokerName)
+        MQClientAPIImpl* pMQClientAPIImpl,
+        const std::string& topic,
+        const std::string& brokerName)
+    : m_pSendCallBack(pSendCallBack),
+      m_pMQClientAPIImpl(pMQClientAPIImpl),
+      m_topic(topic),
+      m_brokerName(brokerName)
 {
 }
 
 ProducerInvokeCallback::~ProducerInvokeCallback()
 {
+	if (m_pSendCallBack)
+	{
+		delete m_pSendCallBack;
+		m_pSendCallBack = NULL;
+	}
 }
 
-void ProducerInvokeCallback::operationComplete(ResponseFuture* pResponseFuture)
+void ProducerInvokeCallback::operationComplete(ResponseFuturePtr pResponseFuture)
 {
-	if (m_pSendCallBack==NULL)
-	{
-		delete this;
-		return;
-	}
+    if (m_pSendCallBack == NULL)
+    {
+        delete this;
+        return;
+    }
 
-	RemotingCommand* response = pResponseFuture->getResponseCommand();
-	if (response != NULL)
-	{
-		try
-		{
-			SendResult* sendResult =
-				m_pMQClientAPIImpl->processSendResponse(m_brokerName, m_topic, response);
+    RemotingCommand* response = pResponseFuture->getResponseCommand();
+    if (response != NULL)
+    {
+        try
+        {
+            SendResult* sendResult =
+                m_pMQClientAPIImpl->processSendResponse(m_brokerName, m_topic, response);
 
-			m_pSendCallBack->onSuccess(*sendResult);
+			assert(sendResult != NULL);
+            m_pSendCallBack->onSuccess(*sendResult);
 
-			delete sendResult;
-		}
-		catch (MQException& e)
-		{
-			m_pSendCallBack->onException(e);
-		}
+            delete sendResult;
+        }
+        catch (MQException& e)
+        {
+            m_pSendCallBack->onException(e);
+        }
 
-		delete response;
-	}
-	else
-	{
-		if (!pResponseFuture->isSendRequestOK())
-		{
-			//"send request failed", responseFuture	.getCause()
-			std::string msg = "send request failed";
-			MQClientException e(msg,-1,__FILE__,__LINE__);
-			m_pSendCallBack->onException(e);
-		}
-		else if (pResponseFuture->isTimeout())
-		{
-			//wait response timeout "+ responseFuture.getTimeoutMillis() + "ms", responseFuture.getCause()
-			std::string msg = "wait response timeout";
-			MQClientException e(msg,-1,__FILE__,__LINE__);
-			m_pSendCallBack->onException(e);
-		}
-		else
-		{
-			// "unknow reseaon", responseFuture	.getCause()
-			std::string msg = "unknow reseaon";
-			MQClientException e(msg,-1,__FILE__,__LINE__);
-			m_pSendCallBack->onException(e);
-		}
-	}
+        delete response;
+    }
+    else
+    {
+        if (!pResponseFuture->isSendRequestOK())
+        {
+            std::string msg = "send request failed";
+            MQClientException e(msg, -1, __FILE__, __LINE__);
+            m_pSendCallBack->onException(e);
+        }
+        else if (pResponseFuture->isTimeout())
+        {
+            std::string msg = RocketMQUtil::str2fmt("wait response timeout %lld ms",
+            	pResponseFuture->getTimeoutMillis());
+            MQClientException e(msg, -1, __FILE__, __LINE__);
+            m_pSendCallBack->onException(e);
+        }
+        else
+        {
+            std::string msg = "unknow reseaon";
+            MQClientException e(msg, -1, __FILE__, __LINE__);
+            m_pSendCallBack->onException(e);
+        }
+    }
 
-	delete this;
+    delete this;
+}
+
 }

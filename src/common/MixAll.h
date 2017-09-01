@@ -14,45 +14,49 @@
  * limitations under the License.
  */
 
-#if!defined __MIXALL_H__
+#ifndef __MIXALL_H__
 #define __MIXALL_H__
 
 #include <string>
 #include <vector>
+#include <iostream>
+#include <fstream>
+#include <unistd.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <dirent.h>
+#include <fnmatch.h>
 #include <arpa/inet.h>
 #include <ifaddrs.h>
-#include <iostream>
+
 #include "AtomicValue.h"
 
-/**
- * 各种方法大杂烩
- *
- */
-class MixAll
+namespace rmq
 {
-public:
-	static long MASTER_ID;
-	static const std::string DEFAULT_TOPIC;
-	static const std::string BENCHMARK_TOPIC;
-	static const std::string DEFAULT_PRODUCER_GROUP;
-	static const std::string DEFAULT_CONSUMER_GROUP;
-	static const std::string TOOLS_CONSUMER_GROUP;
-	static const std::string CLIENT_INNER_PRODUCER_GROUP;
-	static const std::string SELF_TEST_TOPIC;
-	// 为每个Consumer Group建立一个默认的Topic，前缀 + GroupName，用来保存处理失败需要重试的消息
-	static const std::string RETRY_GROUP_TOPIC_PREFIX;
-	// 为每个Consumer Group建立一个默认的Topic，前缀 + GroupName，用来保存重试多次都失败，接下来不再重试的消息
-	static const std::string DLQ_GROUP_TOPIC_PREFIX;
-	static const std::string NAMESRV_ADDR_ENV;
-	static const std::string ROCKETMQ_HOME_ENV;
-	static const std::string  ROCKETMQ_HOME_PROPERTY;
-	static const std::string MESSAGE_COMPRESS_LEVEL;
-	static std::string getRetryTopic(const std::string& consumerGroup);
-	static bool compareAndIncreaseOnly(AtomicLong& target, long long value);
-	static const std::string ROCKETMQ_NAMESRV_DOMAIN;
-	static const std::vector<std::string> CIDR;
-    static bool is_public_ip(const std::string& ip);
-    static std::string filterIP(const std::string& addr);
-};
+    class MixAll
+    {
+    public:
+        static const long MASTER_ID = 0L;
+        static const std::string DEFAULT_TOPIC;
+        static const std::string BENCHMARK_TOPIC;
+        static const std::string DEFAULT_PRODUCER_GROUP;
+        static const std::string DEFAULT_CONSUMER_GROUP;
+        static const std::string TOOLS_CONSUMER_GROUP;
+        static const std::string CLIENT_INNER_PRODUCER_GROUP;
+        static const std::string SELF_TEST_TOPIC;
+        static const std::string RETRY_GROUP_TOPIC_PREFIX;
+        static const std::string DLQ_GROUP_TOPIC_PREFIX;
+        static const std::string NAMESRV_ADDR_ENV;
+        static const std::string ROCKETMQ_HOME_ENV;
+        static const std::string  ROCKETMQ_HOME_PROPERTY;
+        static const std::string MESSAGE_COMPRESS_LEVEL;
+        static const std::string ROCKETMQ_NAMESRV_DOMAIN;
+
+        static std::string getRetryTopic(const std::string& consumerGroup);
+        static bool compareAndIncreaseOnly(kpr::AtomicLong& target, long long value);
+        static std::string file2String(const std::string& fileName);
+        static void string2File(const std::string& fileName, const std::string& fileData);
+    };
+}
 
 #endif

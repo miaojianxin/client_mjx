@@ -14,81 +14,82 @@
 * limitations under the License.
 */
 
-#if!defined __CONSUMESTATS_H__
+#ifndef __CONSUMESTATS_H__
 #define __CONSUMESTATS_H__
 
 #include <map>
-
 #include "MessageQueue.h"
 
-typedef struct
+namespace rmq
 {
-	long long brokerOffset;
-	long long consumerOffset;
-	long long lastTimestamp;// 消费的最后一条消息对应的时间戳
-} OffsetWrapper;
+    typedef struct
+    {
+        long long brokerOffset;
+        long long consumerOffset;
+        long long lastTimestamp;
+    } OffsetWrapper;
 
-/**
-* Consumer消费进度
-*
-* @author kangliqiang<kangliq@163.com>
-*/
-class ConsumeStats
-{
-public:
-	ConsumeStats()
-		:m_consumeTps(0)
-	{
-	}
+    /**
+    * Consumer progress
+    *
+    * @author kangliqiang<kangliq@163.com>
+    */
+    class ConsumeStats
+    {
+    public:
+        ConsumeStats()
+            : m_consumeTps(0)
+        {
+        }
 
-	~ConsumeStats()
-	{
-	}
+        ~ConsumeStats()
+        {
+        }
 
-	long long computeTotalDiff()
-	{
+        long long computeTotalDiff()
+        {
 
-		long long diffTotal = 0L;
+            long long diffTotal = 0L;
 
-		//Iterator<Entry<MessageQueue, OffsetWrapper>> it = m_offsetTable.entrySet().iterator();
-		//while (it.hasNext()) {
-		//	Entry<MessageQueue, OffsetWrapper> next = it.next();
-		//	long long diff = next.getValue().getBrokerOffset() - next.getValue().getConsumerOffset();
-		//	diffTotal += diff;
-		//}
+            //Iterator<Entry<MessageQueue, OffsetWrapper>> it = m_offsetTable.entrySet().iterator();
+            //while (it.hasNext()) {
+            //  Entry<MessageQueue, OffsetWrapper> next = it.next();
+            //  long long diff = next.getValue().getBrokerOffset() - next.getValue().getConsumerOffset();
+            //  diffTotal += diff;
+            //}
 
-		return diffTotal;
-	}
-
-
-	std::map<MessageQueue*, OffsetWrapper> getOffsetTable()
-	{
-		return m_offsetTable;
-	}
+            return diffTotal;
+        }
 
 
-	void setOffsetTable(const std::map<MessageQueue*, OffsetWrapper> offsetTable)
-	{
-		m_offsetTable = offsetTable;
-	}
+        std::map<MessageQueue*, OffsetWrapper> getOffsetTable()
+        {
+            return m_offsetTable;
+        }
 
 
-	long long getConsumeTps()
-	{
-		return m_consumeTps;
-	}
+        void setOffsetTable(const std::map<MessageQueue*, OffsetWrapper> offsetTable)
+        {
+            m_offsetTable = offsetTable;
+        }
 
 
-	void setConsumeTps(long long consumeTps)
-	{
-		m_consumeTps = consumeTps;
-	}
+        long long getConsumeTps()
+        {
+            return m_consumeTps;
+        }
 
-private:
 
-	std::map<MessageQueue*, OffsetWrapper> m_offsetTable;
-	long long m_consumeTps;
+        void setConsumeTps(long long consumeTps)
+        {
+            m_consumeTps = consumeTps;
+        }
 
-};
+    private:
+
+        std::map<MessageQueue*, OffsetWrapper> m_offsetTable;
+        long long m_consumeTps;
+    };
+}
 
 #endif

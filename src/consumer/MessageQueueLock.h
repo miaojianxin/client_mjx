@@ -14,7 +14,7 @@
 * limitations under the License.
 */
 
-#if!defined __MESSAGEQUEUELOCK_H__
+#ifndef __MESSAGEQUEUELOCK_H__
 #define __MESSAGEQUEUELOCK_H__
 
 #include <map>
@@ -22,49 +22,47 @@
 #include "ScopedLock.h"
 #include "MessageQueue.h"
 
-/**
-* 严格保证单个队列同一时刻只有一个线程消费
-* 
-*/
-class MessageQueueLock
+namespace rmq
 {
-public:
-	MessageQueueLock()
-	{
+    class MessageQueueLock
+    {
+    public:
+        MessageQueueLock()
+        {
 
-	}
+        }
 
-	~MessageQueueLock()
-	{
-		std::map<MessageQueue, kpr::Mutex*>::iterator it = m_mqLockTable.begin();
+        ~MessageQueueLock()
+        {
+            std::map<MessageQueue, kpr::Mutex*>::iterator it = m_mqLockTable.begin();
 
-		for (;it!=m_mqLockTable.end();it++)
-		{
-			delete it->second;
-		}
-	}
+            for (; it != m_mqLockTable.end(); it++)
+            {
+                delete it->second;
+            }
+        }
 
-	kpr::Mutex* fetchLockObject(MessageQueue& mq)
-	{
-		kpr::ScopedLock<kpr::Mutex> lock(m_lock);
-		std::map<MessageQueue, kpr::Mutex*>::iterator it = m_mqLockTable.find(mq);
-		kpr::Mutex* objLock;
-		if (it==m_mqLockTable.end())
-		{
-			objLock = new kpr::Mutex();
-			m_mqLockTable[mq]=objLock;
-		}
-		else
-		{
-			objLock = it->second;
-		}
-		
-		return objLock;
-	}
+        kpr::Mutex* fetchLockObject(MessageQueue& mq)
+        {
+            kpr::ScopedLock<kpr::Mutex> lock(m_lock);
+            std::map<MessageQueue, kpr::Mutex*>::iterator it = m_mqLockTable.find(mq);
+            kpr::Mutex* objLock;
+            if (it == m_mqLockTable.end())
+            {
+                objLock = new kpr::Mutex();
+                m_mqLockTable[mq] = objLock;
+            }
+            else
+            {
+                objLock = it->second;
+            }
 
-private:
-	std::map<MessageQueue, kpr::Mutex*> m_mqLockTable;
-	kpr::Mutex m_lock;
-};
+            return objLock;
+        }
 
+    private:
+        std::map<MessageQueue, kpr::Mutex*> m_mqLockTable;
+        kpr::Mutex m_lock;
+    };
+}
 #endif

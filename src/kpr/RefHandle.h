@@ -17,136 +17,312 @@
 #define __KPR_REFHANDLET_H__
 
 #include "KPRTypes.h"
+#include "AtomicValue.h"
+#include "Exception.h"
 
-template <class T>
-T* Duplicate(T *pRef)
+namespace kpr
 {
-	if(pRef)
-	{
-		pRef->IncRef();
-	}
-	return pRef;
-}
 
-template <class T>
-void Release(T *pRef)
+class RefCount
 {
-	if(pRef)
+public:
+	RefCount& operator=(const RefCount&)
 	{
-		pRef->DecRef();
+    	return *this;
 	}
-}
+
+	void incRef()
+	{
+    	m_refCount++;
+	}
+
+	void decRef()
+	{
+	    if (--m_refCount == 0 && !m_noDelete)
+	    {
+	    	m_noDelete = true;
+	        delete this;
+	    }
+	}
+
+	int getRef() const
+	{
+		return m_refCount.get();
+	}
+
+	void setNoDelete(bool b)
+	{
+		m_noDelete = b;
+	}
+
+protected:
+	RefCount()
+    	: m_refCount(0), m_noDelete(false)
+	{
+	}
+
+	RefCount(const RefCount&)
+	    : m_refCount(0), m_noDelete(false)
+	{
+	}
+
+	virtual ~RefCount()
+	{
+	}
+
+protected:
+	AtomicInteger m_refCount;
+	bool		m_noDelete;
+};
+
+
 
 template <class T>
 class RefHandleT
 {
 public:
-	RefHandleT(T* p = 0)
-		:m_ptr(p)
-	{
-	}
+    RefHandleT(T* p = 0)
+    {
+		m_ptr = p;
 
-	RefHandleT(const RefHandleT<T>& v)
-		:m_ptr(v.m_ptr)
-	{
-		m_ptr->IncRef();
-	}
-
-	~RefHandleT()
-	{
-		Release(m_ptr);
-	}
-
-	RefHandleT<T>& operator=(const RefHandleT<T>& v)
-	{
-		if (m_ptr != v.m_ptr)
+		if (m_ptr)
 		{
-			Release(m_ptr);
-
-			m_ptr = v.m_ptr;
-
-			Duplicate(m_ptr);
+			m_ptr->incRef();
 		}
+    }
 
-		return *this;
-	}
+	template<typename Y>
+    RefHandleT(const RefHandleT<Y>& v)
+    {
+		m_ptr = v.m_ptr;
+
+		if (m_ptr)
+		{
+			m_ptr->incRef();
+		}
+    }
+
+	RefHandleT(const RefHandleT& v)
+    {
+		m_ptr = v.m_ptr;
+
+		if (m_ptr)
+		{
+			m_ptr->incRef();
+		}
+    }
+
+    ~RefHandleT()
+    {
+		if (m_ptr)
+        {
+            m_ptr->decRef();
+        }
+    }
 
 	RefHandleT<T>& operator=(T* p)
-	{
-		if (m_ptr != p)
+    {
+        if (m_ptr != p)
+        {
+			if (p)
+            {
+                p->incRef();
+            }
+
+			T* ptr = m_ptr;
+            m_ptr = p;
+
+            if (ptr)
+            {
+                ptr->decRef();
+            }
+        }
+
+        return *this;
+    }
+
+	template<typename Y>
+	RefHandleT<T>& operator=(const RefHandleT<Y>& v)
+    {
+        if (m_ptr != v.m_ptr)
+        {
+			if (v.m_ptr)
+            {
+                v.m_ptr->incRef();
+            }
+
+            T* ptr = m_ptr;
+            m_ptr = v.m_ptr;
+
+            if (ptr)
+            {
+                ptr->decRef();
+            }
+        }
+
+        return *this;
+    }
+
+    RefHandleT<T>& operator=(const RefHandleT<T>& v)
+    {
+        if (m_ptr != v.m_ptr)
+        {
+			if (v.m_ptr)
+            {
+                v.m_ptr->incRef();
+            }
+
+            T* ptr = m_ptr;
+            m_ptr = v.m_ptr;
+
+            if (ptr)
+            {
+                ptr->decRef();
+            }
+        }
+
+        return *this;
+    }
+
+    T* operator->() const
+    {
+		if (!m_ptr)
 		{
-			Release(m_ptr);
-			m_ptr = p;
+			THROW_EXCEPTION(RefHandleNullException, "autoptr null handle error", -1);
 		}
 
-		return *this;
-	}
+        return m_ptr;
+    }
 
-	T* operator->() const
-	{
-		return m_ptr;
-	}
+    T& operator*() const
+    {
+		if (!m_ptr)
+		{
+			THROW_EXCEPTION(RefHandleNullException, "autoptr null handle error", -1);
+		}
 
-	T& operator*()
-	{
-		return *m_ptr;
-	}
+        return *m_ptr;
+    }
 
-	operator T*() const
-	{
-		return m_ptr;
-	}
+    operator T* () const
+    {
+        return m_ptr;
+    }
 
-	T* ptr() const
-	{
-		return m_ptr;
-	}
+    T* ptr() const
+    {
+        return m_ptr;
+    }
 
-	T* retn()
-	{
-		T *p = m_ptr;
-		m_ptr = 0;
+    T* retn()
+    {
+        T* p = m_ptr;
+        m_ptr = 0;
 
-		return p;
-	}
+        return p;
+    }
 
-	bool operator==(const RefHandleT<T>& v) const
-	{
-		return m_ptr == v.m_ptr;
-	}
+    bool operator==(const RefHandleT<T>& v) const
+    {
+        return m_ptr == v.m_ptr;
+    }
 
-	bool operator==(T* p) const
-	{
-		return m_ptr == p;
-	}
+    bool operator==(T* p) const
+    {
+        return m_ptr == p;
+    }
 
-	bool operator!=(const RefHandleT<T>& v) const
-	{
-		return m_ptr != v.m_ptr;
-	}
+    bool operator!=(const RefHandleT<T>& v) const
+    {
+        return m_ptr != v.m_ptr;
+    }
 
-	bool operator!=(T* p) const
-	{
-		return m_ptr != p;
-	}
+    bool operator!=(T* p) const
+    {
+        return m_ptr != p;
+    }
 
-	bool  operator!() const
-	{
-		return m_ptr == 0;
-	}
+    bool operator!() const
+    {
+        return m_ptr == 0;
+    }
 
-	operator bool() const
-	{
-		return m_ptr != 0;
-	}
+    operator bool() const
+    {
+        return m_ptr != 0;
+    }
 
-private:
-	T* m_ptr;
+    void swap(RefHandleT& other)
+    {
+        std::swap(m_ptr, other._ptr);
+    }
+
+	template<class Y>
+    static RefHandleT dynamicCast(const RefHandleT<Y>& r)
+    {
+        return RefHandleT(dynamic_cast<T*>(r._ptr));
+    }
+
+    template<class Y>
+    static RefHandleT dynamicCast(Y* p)
+    {
+        return RefHandleT(dynamic_cast<T*>(p));
+    }
+
+public:
+    T* m_ptr;
 };
 
-#define DECLAREVAR(T)   typedef RefHandleT<T> T ## _var;\
-	typedef T* T ## _ptr;
 
-#define DECLAREPTR(T)   typedef T* T ## _ptr;
+template<typename T, typename U>
+inline bool operator==(const RefHandleT<T>& lhs, const RefHandleT<U>& rhs)
+{
+    T* l = lhs.ptr();
+    U* r = rhs.ptr();
+    if(l && r)
+    {
+        return *l == *r;
+    }
+    else
+    {
+        return !l && !r;
+    }
+}
+
+
+template<typename T, typename U>
+inline bool operator!=(const RefHandleT<T>& lhs, const RefHandleT<U>& rhs)
+{
+    T* l = lhs.ptr();
+    U* r = rhs.ptr();
+    if(l && r)
+    {
+        return *l != *r;
+    }
+    else
+    {
+        return l || r;
+    }
+}
+
+
+template<typename T, typename U>
+inline bool operator<(const RefHandleT<T>& lhs, const RefHandleT<U>& rhs)
+{
+    T* l = lhs.ptr();
+    U* r = rhs.ptr();
+    if(l && r)
+    {
+        return *l < *r;
+    }
+    else
+    {
+        return !l && r;
+    }
+}
+
+}
+
+#define DECLAREVAR(T)   typedef kpr::RefHandleT<T> T ## Ptr;
 
 #endif

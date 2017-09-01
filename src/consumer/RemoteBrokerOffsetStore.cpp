@@ -21,10 +21,13 @@
 #include "CommandCustomHeader.h"
 #include "MQClientAPIImpl.h"
 
-RemoteBrokerOffsetStore::RemoteBrokerOffsetStore(MQClientFactory* pMQClientFactory, const std::string& groupName) 
+namespace rmq
 {
-	m_pMQClientFactory = pMQClientFactory;
-	m_groupName = groupName;
+
+RemoteBrokerOffsetStore::RemoteBrokerOffsetStore(MQClientFactory* pMQClientFactory, const std::string& groupName)
+{
+    m_pMQClientFactory = pMQClientFactory;
+    m_groupName = groupName;
 }
 
 void RemoteBrokerOffsetStore::load()
@@ -32,210 +35,232 @@ void RemoteBrokerOffsetStore::load()
 
 }
 
-void RemoteBrokerOffsetStore::updateOffset(MessageQueue& mq, long long offset, bool increaseOnly)
+void RemoteBrokerOffsetStore::updateOffset(const MessageQueue& mq, long long offset, bool increaseOnly)
 {
-	kpr::ScopedLock<kpr::Mutex> lock(m_tableMutex);
-	std::map<MessageQueue, AtomicLong*>::iterator it = m_offsetTable.find(mq);
-	if (it != m_offsetTable.end())
-	{
-		if (increaseOnly)
-		{
-			MixAll::compareAndIncreaseOnly(*it->second,offset);
-		}
-		else
-		{
-			it->second->Set(offset);
-		}
-	}
-	else
-	{
-		m_offsetTable[mq] = new AtomicLong(offset);
-	}
+    kpr::ScopedWLock<kpr::RWMutex> lock(m_tableMutex);
+    typeof(m_offsetTable.begin()) it = m_offsetTable.find(mq);
+    if (it == m_offsetTable.end())
+    {
+        m_offsetTable[mq] = offset;
+        it = m_offsetTable.find(mq);
+    }
+
+    kpr::AtomicLong& offsetOld = it->second;
+    if (increaseOnly)
+    {
+        MixAll::compareAndIncreaseOnly(offsetOld, offset);
+    }
+    else
+    {
+        offsetOld.set(offset);
+    }
 }
 
-long long RemoteBrokerOffsetStore::readOffset(MessageQueue& mq, ReadOffsetType type)
+long long RemoteBrokerOffsetStore::readOffset(const MessageQueue& mq, ReadOffsetType type)
 {
-		switch (type)
-		{
-		case MEMORY_FIRST_THEN_STORE:
-		case READ_FROM_MEMORY: 
-			{
-				kpr::ScopedLock<kpr::Mutex> lock(m_tableMutex);
-				std::map<MessageQueue, AtomicLong*>::iterator it = m_offsetTable.find(mq);
-				if (it != m_offsetTable.end())
-				{
-					return it->second->Get();
-				}
-				else 
-				{
-					if (READ_FROM_MEMORY == type)
-					{
-						return -1;
-					}
-				}
+    RMQ_DEBUG("readOffset, MQ:%s, type:%d", mq.toString().c_str(), type);
+    switch (type)
+    {
+        case MEMORY_FIRST_THEN_STORE:
+        case READ_FROM_MEMORY:
+        {
+            kpr::ScopedRLock<kpr::RWMutex> lock(m_tableMutex);
+            typeof(m_offsetTable.begin()) it = m_offsetTable.find(mq);
+            if (it != m_offsetTable.end())
+            {
+                return it->second.get();
+            }
+            else if (READ_FROM_MEMORY == type)
+            {
+                RMQ_DEBUG("No offset in memory, MQ:%s", mq.toString().c_str());
+                return -1;
+            }
+        }
+        case READ_FROM_STORE:
+        {
+            try
+            {
+                long long brokerOffset = this->fetchConsumeOffsetFromBroker(mq);
+                RMQ_DEBUG("fetchConsumeOffsetFromBroker, MQ:%s, brokerOffset:%lld",
+                          mq.toString().c_str(), brokerOffset);
+                if (brokerOffset >= 0)
+                {
+                    this->updateOffset(mq, brokerOffset, false);
+                }
+                return brokerOffset;
+            }
+            // No offset in broker
+            catch (const MQBrokerException& e)
+            {
+                RMQ_WARN("No offset in broker, MQ:%s, exception:%s", mq.toString().c_str(), e.what());
+                return -1;
+            }
+            catch (const std::exception& e)
+            {
+                RMQ_ERROR("fetchConsumeOffsetFromBroker exception, MQ:%s, msg:%s",
+                          mq.toString().c_str(), e.what());
+                return -2;
+            }
+            catch (...)
+            {
+                RMQ_ERROR("fetchConsumeOffsetFromBroker unknow exception, MQ:%s",
+                          mq.toString().c_str());
+                return -2;
+            }
+        }
+        default:
+            break;
+    }
 
-			}
-		case READ_FROM_STORE:
-			{
-				try
-				{
-					long long brokerOffset = fetchConsumeOffsetFromBroker(mq);
-					if (brokerOffset>=0)
-					{
-						updateOffset(mq, brokerOffset, false);
-					}
-					
-					return brokerOffset;
-				}
-				// 当前订阅组在服务器没有对应的Offset
-				catch (MQClientException& e)
-				{
-					return -1;
-				}
-			}
-		default:
-			break;
-		}
-
-	return -1;
+    return -1;
 }
 
 void RemoteBrokerOffsetStore::persistAll(std::set<MessageQueue>& mqs)
 {
-	if (mqs.empty())
-	{
-		return;
-	}
+    if (mqs.empty())
+    {
+        return;
+    }
 
-	std::map<MessageQueue, long long> tmp;
+    std::set<MessageQueue> unusedMQ;
+    long long times = m_storeTimesTotal.fetchAndAdd(1);
 
-	long long times = m_storeTimesTotal++;
-	{
-		kpr::ScopedLock<kpr::Mutex> lock(m_tableMutex);
-		std::map<MessageQueue, AtomicLong*>::iterator it = m_offsetTable.begin();
-		for (;it!=m_offsetTable.end();)
-		{
-			if (mqs.find(it->first)!=mqs.end())
-			{
-				tmp[it->first] = it->second->Get();
-				it++;
-			}
-			else
-			{
-				std::map<MessageQueue, AtomicLong*>::iterator itTmp = it;
-				it++;
-				m_offsetTable.erase(itTmp);
-			}
-		}
-	}
+    kpr::ScopedRLock<kpr::RWMutex> lock(m_tableMutex);
+    for (typeof(m_offsetTable.begin()) it = m_offsetTable.begin();
+         it != m_offsetTable.end(); it++)
+    {
+        MessageQueue mq = it->first;
+        kpr::AtomicLong& offset = it->second;
+        if (mqs.find(mq) != mqs.end())
+        {
+            try
+            {
+                this->updateConsumeOffsetToBroker(mq, offset.get());
+                if ((times % 12) == 0)
+                {
+                    RMQ_INFO("updateConsumeOffsetToBroker, Group: {%s} ClientId: {%s}  mq:{%s} offset {%llu}",
+                             m_groupName.c_str(),
+                             m_pMQClientFactory->getClientId().c_str(),
+                             mq.toString().c_str(),
+                             offset.get());
+                }
+            }
+            catch (...)
+            {
+                RMQ_ERROR("updateConsumeOffsetToBroker exception, mq=%s", mq.toString().c_str());
+            }
+        }
+        else
+        {
+            unusedMQ.insert(mq);
+        }
+    }
 
-	std::map<MessageQueue, long long>::iterator it = tmp.begin();
-	for(;it != tmp.end();it++)
-	{
-		try
-		{
-			updateConsumeOffsetToBroker(it->first, it->second);
-			// 每隔1分钟打印一次消费进度
-			if ((times % 12) == 0)
-			{
-				//log.info("Group: {} ClientId: {} updateConsumeOffsetToBroker {} {}", //
-				//	this.groupName,//
-				//	this.mQClientFactory.getClientId(),//
-				//	mq, //
-				//	offset.get());
-			}
-		}
-		catch (MQClientException& e)
-		{
-			//log.error("updateConsumeOffsetToBroker exception, " + mq.toString(), e);
-		}
-	}
+    if (!unusedMQ.empty())
+    {
+        for (typeof(unusedMQ.begin()) it = unusedMQ.begin(); it != unusedMQ.end(); it++)
+        {
+            m_offsetTable.erase(*it);
+            RMQ_INFO("remove unused mq, %s, %s", it->toString().c_str(), m_groupName.c_str());
+        }
+    }
 }
 
-void RemoteBrokerOffsetStore::persist(MessageQueue& mq)
+void RemoteBrokerOffsetStore::persist(const MessageQueue& mq)
 {
-	long long offset;
-	bool find = false;
-	{
-		kpr::ScopedLock<kpr::Mutex> lock(m_tableMutex);
-		std::map<MessageQueue, AtomicLong*>::iterator it = m_offsetTable.find(mq);
-		if (it != m_offsetTable.end())
-		{
-			offset = it->second->Get();
-		}
-	}
-
-	if (find)
-	{
-		try
-		{
-			updateConsumeOffsetToBroker(mq, offset);
-			//log.debug("updateConsumeOffsetToBroker {} {}", mq, offset.get());
-		}
-		catch (MQClientException& e)
-		{
-			//log.error("updateConsumeOffsetToBroker exception, " + mq.toString(), e);
-		}
-	}
+    kpr::ScopedRLock<kpr::RWMutex> lock(m_tableMutex);
+    typeof(m_offsetTable.begin()) it = m_offsetTable.find(mq);
+    if (it != m_offsetTable.end())
+    {
+        try
+        {
+            this->updateConsumeOffsetToBroker(mq, it->second.get());
+            RMQ_DEBUG("updateConsumeOffsetToBroker ok, mq=%s, offset=%lld", mq.toString().c_str(), it->second.get());
+        }
+        catch (...)
+        {
+            RMQ_ERROR("updateConsumeOffsetToBroker exception, mq=%s", mq.toString().c_str());
+        }
+    }
 }
+
+void RemoteBrokerOffsetStore::removeOffset(const MessageQueue& mq)
+{
+    kpr::ScopedWLock<kpr::RWMutex> lock(m_tableMutex);
+    m_offsetTable.erase(mq);
+    RMQ_INFO("remove unnecessary messageQueue offset. mq=%s, offsetTableSize=%u",
+             mq.toString().c_str(), (unsigned)m_offsetTable.size());
+}
+
+
+std::map<MessageQueue, long long> RemoteBrokerOffsetStore::cloneOffsetTable(const std::string& topic)
+{
+    kpr::ScopedRLock<kpr::RWMutex> lock(m_tableMutex);
+    std::map<MessageQueue, long long> cloneOffsetTable;
+    RMQ_FOR_EACH(m_offsetTable, it)
+    {
+        MessageQueue mq = it->first;
+        kpr::AtomicLong& offset = it->second;
+        if (topic == mq.getTopic())
+        {
+            cloneOffsetTable[mq] = offset.get();
+        }
+    }
+
+    return cloneOffsetTable;
+}
+
 
 void RemoteBrokerOffsetStore::updateConsumeOffsetToBroker(const MessageQueue& mq, long long offset)
 {
-	FindBrokerResult findBrokerResult = m_pMQClientFactory->findBrokerAddressInAdmin(mq.getBrokerName());
-	
-	if (findBrokerResult.brokerAddr.empty())
-	{
-		// TODO 此处可能对Name Server压力过大，需要调优
-		m_pMQClientFactory->updateTopicRouteInfoFromNameServer(mq.getTopic());
-		findBrokerResult = m_pMQClientFactory->findBrokerAddressInAdmin(mq.getBrokerName());
-	}
+    FindBrokerResult findBrokerResult = m_pMQClientFactory->findBrokerAddressInAdmin(mq.getBrokerName());
+    if (findBrokerResult.brokerAddr.empty())
+    {
+        m_pMQClientFactory->updateTopicRouteInfoFromNameServer(mq.getTopic());
+        findBrokerResult = m_pMQClientFactory->findBrokerAddressInAdmin(mq.getBrokerName());
+    }
 
-	if (!findBrokerResult.brokerAddr.empty())
-	{
-		UpdateConsumerOffsetRequestHeader* requestHeader = new UpdateConsumerOffsetRequestHeader();
-		requestHeader->topic = mq.getTopic();
-		requestHeader->consumerGroup = m_groupName;
-		requestHeader->queueId = mq.getQueueId();
-		requestHeader->commitOffset = offset;
+    if (!findBrokerResult.brokerAddr.empty())
+    {
+        UpdateConsumerOffsetRequestHeader* requestHeader = new UpdateConsumerOffsetRequestHeader();
+        requestHeader->topic = mq.getTopic();
+        requestHeader->consumerGroup = this->m_groupName;
+        requestHeader->queueId = mq.getQueueId();
+        requestHeader->commitOffset = offset;
 
-		// 使用oneway形式，原因是服务器在删除文件时，这个调用可能会超时
-		m_pMQClientFactory->getMQClientAPIImpl()->updateConsumerOffsetOneway(
-			findBrokerResult.brokerAddr, requestHeader, 1000 * 5);
-	}
-	//else {
-	//	throw new MQClientException("The broker[" + mq.getBrokerName() + "] not exist", null);
-	//}
+        m_pMQClientFactory->getMQClientAPIImpl()->updateConsumerOffsetOneway(
+            findBrokerResult.brokerAddr, requestHeader, 1000 * 5);
+    }
+    else
+    {
+        THROW_MQEXCEPTION(MQClientException, "The broker[" + mq.getBrokerName() + "] not exist", -1);
+    }
 }
 
-long long RemoteBrokerOffsetStore::fetchConsumeOffsetFromBroker(MessageQueue& mq)
+long long RemoteBrokerOffsetStore::fetchConsumeOffsetFromBroker(const MessageQueue& mq)
 {
-	FindBrokerResult findBrokerResult = m_pMQClientFactory->findBrokerAddressInAdmin(mq.getBrokerName());
+    FindBrokerResult findBrokerResult = m_pMQClientFactory->findBrokerAddressInAdmin(mq.getBrokerName());
+    if (findBrokerResult.brokerAddr.empty())
+    {
+        // TODO Here may be heavily overhead for Name Server,need tuning
+        m_pMQClientFactory->updateTopicRouteInfoFromNameServer(mq.getTopic());
+        findBrokerResult = m_pMQClientFactory->findBrokerAddressInAdmin(mq.getBrokerName());
+    }
 
-	if (findBrokerResult.brokerAddr.empty())
-	{
-		// TODO 此处可能对Name Server压力过大，需要调优
-		m_pMQClientFactory->updateTopicRouteInfoFromNameServer(mq.getTopic());
-		findBrokerResult = m_pMQClientFactory->findBrokerAddressInAdmin(mq.getBrokerName());
-	}
+    if (!findBrokerResult.brokerAddr.empty())
+    {
+        QueryConsumerOffsetRequestHeader* requestHeader = new QueryConsumerOffsetRequestHeader();
+        requestHeader->topic = mq.getTopic();
+        requestHeader->consumerGroup = this->m_groupName;
+        requestHeader->queueId = mq.getQueueId();
 
-	if (!findBrokerResult.brokerAddr.empty())
-	{
-		QueryConsumerOffsetRequestHeader* requestHeader = new QueryConsumerOffsetRequestHeader();
-		requestHeader->topic = mq.getTopic();
-		requestHeader->consumerGroup = m_groupName;
-		requestHeader->queueId = mq.getQueueId();
-
-		return m_pMQClientFactory->getMQClientAPIImpl()->queryConsumerOffset(
-			findBrokerResult.brokerAddr, requestHeader, 1000 * 5);
-	}
-	//else {
-	//	throw new MQClientException("The broker[" + mq.getBrokerName() + "] not exist", null);
-	//}
-	return -1;
+        return m_pMQClientFactory->getMQClientAPIImpl()->queryConsumerOffset(
+                   findBrokerResult.brokerAddr, requestHeader, 1000 * 5);
+    }
+    else
+    {
+        THROW_MQEXCEPTION(MQClientException, "The broker[" + mq.getBrokerName() + "] not exist", -1);
+    }
 }
 
-void RemoteBrokerOffsetStore::removeOffset(MessageQueue& mq) 
-{
-	kpr::ScopedLock<kpr::Mutex> lock(m_tableMutex);
-	m_offsetTable.erase(mq);
 }

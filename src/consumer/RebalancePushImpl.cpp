@@ -16,117 +16,202 @@
 
 #include "RebalancePushImpl.h"
 
+#include <string.h>
+#include <limits.h>
+
+#include "DefaultMQPushConsumerImpl.h"
+#include "AllocateMessageQueueStrategy.h"
+#include "MQClientFactory.h"
+#include "MessageQueueListener.h"
+#include "OffsetStore.h"
+#include "DefaultMQPushConsumer.h"
+#include "MQAdminImpl.h"
+
+
+namespace rmq
+{
+
 RebalancePushImpl::RebalancePushImpl(DefaultMQPushConsumerImpl* pDefaultMQPushConsumerImpl)
-	:RebalanceImpl("",BROADCASTING,NULL,NULL),
-	m_pDefaultMQPushConsumerImpl(pDefaultMQPushConsumerImpl)
+    : RebalanceImpl("", BROADCASTING, NULL, NULL),
+      m_pDefaultMQPushConsumerImpl(pDefaultMQPushConsumerImpl)
 {
 }
 
 RebalancePushImpl::RebalancePushImpl(const std::string& consumerGroup,
-	MessageModel messageModel,
-	AllocateMessageQueueStrategy* pAllocateMessageQueueStrategy,
-	MQClientFactory* pMQClientFactory,
-	DefaultMQPushConsumerImpl* pDefaultMQPushConsumerImpl)
-	:RebalanceImpl(consumerGroup, messageModel, pAllocateMessageQueueStrategy, pMQClientFactory),
-	m_pDefaultMQPushConsumerImpl(pDefaultMQPushConsumerImpl)
+                                     MessageModel messageModel,
+                                     AllocateMessageQueueStrategy* pAllocateMessageQueueStrategy,
+                                     MQClientFactory* pMQClientFactory,
+                                     DefaultMQPushConsumerImpl* pDefaultMQPushConsumerImpl)
+    : RebalanceImpl(consumerGroup, messageModel, pAllocateMessageQueueStrategy, pMQClientFactory),
+      m_pDefaultMQPushConsumerImpl(pDefaultMQPushConsumerImpl)
 {
 }
 
 void RebalancePushImpl::dispatchPullRequest(std::list<PullRequest*>& pullRequestList)
 {
-	std::list<PullRequest*>::iterator it = pullRequestList.begin();
-	// 派发PullRequest
-	for (;it!=pullRequestList.end();it++)
-	{
-		m_pDefaultMQPushConsumerImpl->executePullRequestImmediately(*it);
-	}
+    std::list<PullRequest*>::iterator it = pullRequestList.begin();
+    for (; it != pullRequestList.end(); it++)
+    {
+        m_pDefaultMQPushConsumerImpl->executePullRequestImmediately(*it);
+        RMQ_INFO("doRebalance, {%s}, add a new pull request {%s}",
+        	m_consumerGroup.c_str(), (*it)->toString().c_str());
+    }
 }
 
 long long RebalancePushImpl::computePullFromWhere(MessageQueue& mq)
 {
-	long long result = -1;
-	ConsumeFromWhere consumeFromWhere =
-		m_pDefaultMQPushConsumerImpl->getDefaultMQPushConsumer()->getConsumeFromWhere();
-	OffsetStore* offsetStore = m_pDefaultMQPushConsumerImpl->getOffsetStore();
+    long long result = -1;
+    ConsumeFromWhere consumeFromWhere =
+        m_pDefaultMQPushConsumerImpl->getDefaultMQPushConsumer()->getConsumeFromWhere();
+    OffsetStore* offsetStore = m_pDefaultMQPushConsumerImpl->getOffsetStore();
 
-	switch (consumeFromWhere)
-	{
-	case CONSUME_FROM_LAST_OFFSET:
-		{
-			long long lastOffset = offsetStore->readOffset(mq, READ_FROM_STORE);
-			if (lastOffset >= 0)
-			{
-				result = lastOffset;
-			}
-			// 当前订阅组在服务器没有对应的Offset
-			// 说明是第一次启动
-			else if (-1 == lastOffset)
-			{
-				// 如果是重试队列，需要从0开始
-				if (strncmp(MixAll::RETRY_GROUP_TOPIC_PREFIX.c_str(),mq.getTopic().c_str(),MixAll::RETRY_GROUP_TOPIC_PREFIX.size())==0)
-				{
-					result = 0L;
-				}
-				// 正常队列则从末尾开始
-				else
-				{
-					result = LLONG_MAX;
-				}
-			}
-			// 发生其他错误
-			else
-			{
-				result = -1;
-			}
-			break;
-		}
-	case CONSUME_FROM_LAST_OFFSET_AND_FROM_MIN_WHEN_BOOT_FIRST:
-		{
-			long long lastOffset = offsetStore->readOffset(mq, READ_FROM_STORE);
-			if (lastOffset >= 0)
-			{
-				result = lastOffset;
-			}
-			// 当前订阅组在服务器没有对应的Offset
-			// 说明是第一次启动
-			else if (-1 == lastOffset)
-			{
-				result = 0L;
-			}
-			// 发生其他错误
-			else
-			{
-				result = -1;
-			}
-			break;
-		}
-	case CONSUME_FROM_MAX_OFFSET:
-		result = LLONG_MAX;
-		break;
-	case CONSUME_FROM_MIN_OFFSET:
-		result = 0L;
-		break;
-	default:
-		break;
-	}
+    switch (consumeFromWhere)
+    {
+    	case CONSUME_FROM_FIRST_OFFSET:
+        {
+            long long lastOffset = offsetStore->readOffset(mq, READ_FROM_STORE);
+            if (lastOffset >= 0)
+            {
+                result = lastOffset;
+            }
+            else if (-1 == lastOffset)
+            {
+                result = 0L;
+            }
+            else
+            {
+                result = -1;
+            }
+            break;
+        }
+        case CONSUME_FROM_LAST_OFFSET:
+        {
+            long long lastOffset = offsetStore->readOffset(mq, READ_FROM_STORE);
+            if (lastOffset >= 0)
+            {
+                result = lastOffset;
+            }
+            else if (-1 == lastOffset)
+            {
+                if (strncmp(MixAll::RETRY_GROUP_TOPIC_PREFIX.c_str(), mq.getTopic().c_str(), MixAll::RETRY_GROUP_TOPIC_PREFIX.size()) == 0)
+                {
+                    result = 0L;
+                }
+                else
+                {
+                    //result = LLONG_MAX;
+                    try
+                    {
+                    	result = m_pMQClientFactory->getMQAdminImpl()->maxOffset(mq);
+                    }
+                    catch(...)
+                    {
+                    	result = -1;
+                    }
+                }
+            }
+            else
+            {
+                result = -1;
+            }
+            break;
+        }
 
-	return result;
+        case CONSUME_FROM_MAX_OFFSET:
+            result = LLONG_MAX;
+            break;
+        case CONSUME_FROM_MIN_OFFSET:
+            result = 0L;
+            break;
+        case CONSUME_FROM_TIMESTAMP:
+        	{
+	        	long long lastOffset = offsetStore->readOffset(mq, READ_FROM_STORE);
+	            if (lastOffset >= 0)
+	            {
+	                result = lastOffset;
+	            }
+	            else if (-1 == lastOffset)
+	            {
+	                if (strncmp(MixAll::RETRY_GROUP_TOPIC_PREFIX.c_str(), mq.getTopic().c_str(), MixAll::RETRY_GROUP_TOPIC_PREFIX.size()) == 0)
+	                {
+	                	//result = LLONG_MAX;
+	                    try
+	                    {
+	                    	result = m_pMQClientFactory->getMQAdminImpl()->maxOffset(mq);
+	                    }
+	                    catch(...)
+	                    {
+	                    	result = -1;
+	                    }
+	                }
+	                else
+	                {
+	                    try
+	                    {
+	                    	long timestamp = UtilAll::str2tm(
+                                    m_pDefaultMQPushConsumerImpl->getDefaultMQPushConsumer()->getConsumeTimestamp(),
+                                    rmq::yyyyMMddHHmmss);
+                        	result = m_pMQClientFactory->getMQAdminImpl()->searchOffset(mq, timestamp);
+	                    }
+	                    catch(...)
+	                    {
+	                    	result = -1;
+	                    }
+	                }
+	            }
+	            else
+	            {
+	                result = -1;
+	            }
+	            break;
+	        }
+        	break;
+        default:
+            break;
+    }
+
+    return result;
 }
 
 void RebalancePushImpl::messageQueueChanged(const std::string& topic,
-	std::set<MessageQueue>& mqAll, 
-	std::set<MessageQueue>& mqDivided)
+        std::set<MessageQueue>& mqAll,
+        std::set<MessageQueue>& mqDivided)
 {
 }
 
 
-void RebalancePushImpl::removeUnnecessaryMessageQueue(MessageQueue& mq, ProcessQueue& pq)
+bool RebalancePushImpl::removeUnnecessaryMessageQueue(MessageQueue& mq, ProcessQueue& pq)
 {
-	m_pDefaultMQPushConsumerImpl->getOffsetStore()->persist(mq);
-	m_pDefaultMQPushConsumerImpl->getOffsetStore()->removeOffset(mq);
-	if (m_pDefaultMQPushConsumerImpl->isConsumeOrderly())
-	{
-		unlock(mq, true);
-	}
+    m_pDefaultMQPushConsumerImpl->getOffsetStore()->persist(mq);
+    m_pDefaultMQPushConsumerImpl->getOffsetStore()->removeOffset(mq);
+    if (m_pDefaultMQPushConsumerImpl->isConsumeOrderly()
+    	&& m_pDefaultMQPushConsumerImpl->messageModel() == CLUSTERING)
+    {
+    	if (pq.getLockConsume().TryLock(1000))
+    	{
+	    	try
+	    	{
+	        	this->unlock(mq, true);
+	        }
+	        catch (std::exception& e)
+	        {
+	            RMQ_ERROR("removeUnnecessaryMessageQueue Exception: %s", e.what());
+	        }
+	        pq.getLockConsume().Unlock();
+	   	}
+	   	else
+	   	{
+	   		RMQ_WARN("[WRONG]mq is consuming, so can not unlock it, MQ:%s, maybe hanged for a while, times:{%lld}",
+            	mq.toString().c_str(),
+            	pq.getTryUnlockTimes());
+
+			pq.incTryUnlockTimes();
+	   	}
+
+	   	return false;
+    }
+
+    return true;
 }
 
+}

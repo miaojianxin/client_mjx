@@ -18,10 +18,13 @@
 #include "Monitor.h"
 #include "ScopedLock.h"
 
+namespace rmq
+{
+
 ServiceThread::ServiceThread(const char* name)
-	:kpr::Thread(name),
-	 m_notified(false),
-	 m_stoped(false)
+    : kpr::Thread(name),
+      m_notified(false),
+      m_stoped(false)
 {
 
 }
@@ -33,36 +36,38 @@ ServiceThread::~ServiceThread()
 
 void ServiceThread::stop()
 {
-	m_stoped = true;
-	wakeup();
+    m_stoped = true;
+    wakeup();
 }
 
 void ServiceThread::wakeup()
 {
-	kpr::ScopedLock<kpr::Monitor> lock(*this);
+    kpr::ScopedLock<kpr::Monitor> lock(*this);
 
-	if (!m_notified)
-	{
-		m_notified = true;
-		Notify();
-	}
+    if (!m_notified)
+    {
+        m_notified = true;
+        Notify();
+    }
 }
 
 void ServiceThread::waitForRunning(long interval)
 {
-	kpr::ScopedLock<kpr::Monitor> lock(*this);
-	if (m_notified)
-	{
-		m_notified = false;
-		return;
-	}
+    kpr::ScopedLock<kpr::Monitor> lock(*this);
+    if (m_notified)
+    {
+        m_notified = false;
+        return;
+    }
 
-	try
-	{
-		Wait(interval);
-	}
-	catch (...)
-	{
-		m_notified = false;
-	}
+    try
+    {
+        Wait(interval);
+    }
+    catch (...)
+    {
+        m_notified = false;
+    }
+}
+
 }

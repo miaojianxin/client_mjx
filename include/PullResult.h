@@ -13,62 +13,79 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 */
-#if!defined __PULLRESULT_H__
-#define __PULLRESULT_H__
+#ifndef __RMQ_PULLRESULT_H__
+#define __RMQ_PULLRESULT_H__
 
 #include <list>
+#include <string>
+#include <sstream>
 
-#include "MessageExt.h"
 #include "RocketMQClient.h"
+#include "MessageExt.h"
 
-enum PullStatus
+namespace rmq
 {
-	FOUND,//找到消息
-	NO_NEW_MSG,//没有新的消息可以被拉取
-	NO_MATCHED_MSG,//经过过滤后，没有匹配的消息
-	OFFSET_ILLEGAL//Offset不合法，可能过大或者过小
-};
-
-/**
-* 拉消息返回结果
-*
-*/
-struct ROCKETMQCLIENT_API PullResult
-{
-	PullResult()
+	enum PullStatus
 	{
+		FOUND,
+		NO_NEW_MSG,
+		NO_MATCHED_MSG,
+		OFFSET_ILLEGAL
+	};
 
-	}
-
-	PullResult(PullStatus pullStatus,
-			   long long nextBeginOffset,
-			   long long minOffset,
-			   long long maxOffset,
-			   std::list<MessageExt*>& msgFoundList)
-		:pullStatus(pullStatus),
-		 nextBeginOffset(nextBeginOffset),
-		 minOffset(minOffset),
-		 maxOffset(maxOffset),
-		 msgFoundList(msgFoundList)
+	/**
+	* PullResult
+	*
+	*/
+	struct PullResult
 	{
-
-	}
-	
-	~PullResult()
-	{
-		std::list<MessageExt*>::iterator it = msgFoundList.begin();
-
-		for (;it!=msgFoundList.end();it++)
+		PullResult()
 		{
-			delete *it;
-		}
-	}
 
-	PullStatus pullStatus;
-	long long nextBeginOffset;
-	long long minOffset;
-	long long maxOffset;
-	std::list<MessageExt*> msgFoundList;
-};
+		}
+
+		PullResult(PullStatus pullStatus,
+				   long long nextBeginOffset,
+				   long long minOffset,
+				   long long maxOffset,
+				   std::list<MessageExt*>& msgFoundList)
+			:pullStatus(pullStatus),
+			 nextBeginOffset(nextBeginOffset),
+			 minOffset(minOffset),
+			 maxOffset(maxOffset),
+			 msgFoundList(msgFoundList)
+		{
+
+		}
+
+		~PullResult()
+		{
+			std::list<MessageExt*>::iterator it = msgFoundList.begin();
+
+			for (;it!=msgFoundList.end();it++)
+			{
+				delete *it;
+			}
+		}
+
+		std::string toString() const
+		{
+			std::stringstream ss;
+			ss 	<< "{pullStatus=" << pullStatus
+				<< ",nextBeginOffset=" << nextBeginOffset
+				<< ",minOffset=" << nextBeginOffset
+				<< ",maxOffset=" << nextBeginOffset
+				<< ",msgFoundList.size=" << msgFoundList.size()
+				<<"}";
+			return ss.str();
+		}
+
+		PullStatus pullStatus;
+		long long nextBeginOffset;
+		long long minOffset;
+		long long maxOffset;
+		std::list<MessageExt*> msgFoundList;
+	};
+}
 
 #endif

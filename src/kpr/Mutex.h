@@ -21,72 +21,87 @@
 
 namespace kpr
 {
-	class Mutex
-	{
-	public:
-		Mutex();
-		~Mutex();
+class Mutex
+{
+public:
+    Mutex();
+    ~Mutex();
 
-		int Lock()const;
-		int Unlock()const;
-		int TryLock()const;
+    void Lock()const;
+    void Unlock()const;
+    bool TryLock()const;
+	bool TryLock(int timeout) const;
 
-		ThreadId GetOwner()const;
+    ThreadId GetOwner()const;
 
-	private:
-		Mutex(const Mutex&);
-		const Mutex& operator=(const Mutex&);
+private:
+    Mutex(const Mutex&);
+    const Mutex& operator=(const Mutex&);
 
-#ifdef WIN32
-		mutable CRITICAL_SECTION m_mutex;
-#else
-		mutable pthread_mutex_t m_mutex;
-#endif
+    mutable pthread_mutex_t m_mutex;
+    friend class Condition;
+};
 
-		friend class Condition;
-	};
+class RWMutex
+{
+public:
+    RWMutex();
+    ~RWMutex();
 
-	class RecursiveMutex
-	{
-	public:
-		RecursiveMutex();
-		~RecursiveMutex();
+    void ReadLock()const;
+    void WriteLock()const;
+    bool TryReadLock()const;
+	bool TryReadLock(int timeout) const;
+    bool TryWriteLock()const;
+	bool TryWriteLock(int timeout)const;
+    void Unlock()const;
 
-		bool Lock()const;
-		bool Unlock()const;
-		bool TryLock()const;
+    ThreadId GetOwner()const;
 
-		ThreadId GetOwner()const;
+private:
+    RWMutex(const RWMutex&);
+    const RWMutex& operator=(const RWMutex&);
 
-		unsigned int GetCount()const
-		{
-			return m_count;
-		}
+    mutable pthread_rwlock_t m_mutex;
+    friend class Condition;
+};
 
-	private:
-		RecursiveMutex(const RecursiveMutex&);
+class RecursiveMutex
+{
+public:
+    RecursiveMutex();
+    ~RecursiveMutex();
 
-		const RecursiveMutex& operator=(const RecursiveMutex&);
+    bool Lock()const;
+    bool Unlock()const;
+    bool TryLock()const;
 
-		bool  lock(int count);
-		bool  tryLock();
-		bool unlock();
+    ThreadId GetOwner()const;
 
-		unsigned int reset4Condvar();
+    unsigned int GetCount()const
+    {
+        return m_count;
+    }
 
-	private:
-#ifdef WIN32
-		CRITICAL_SECTION m_mutex;
-#else
-		pthread_mutex_t m_mutex;
-#endif
+private:
+    RecursiveMutex(const RecursiveMutex&);
 
-		Mutex m_internal;
-		mutable unsigned int m_count;
-		mutable ThreadId m_owner;
+    const RecursiveMutex& operator=(const RecursiveMutex&);
 
-		friend class Condition;
-		friend class ConditionHelper;
-	};
+    bool  lock(int count);
+    bool  tryLock();
+    bool unlock();
+
+    unsigned int reset4Condvar();
+
+private:
+    pthread_mutex_t m_mutex;
+    Mutex m_internal;
+    mutable unsigned int m_count;
+    mutable ThreadId m_owner;
+
+    friend class Condition;
+    friend class ConditionHelper;
+};
 }
 #endif

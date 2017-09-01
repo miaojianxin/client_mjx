@@ -13,29 +13,32 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 */
-#if!defined __REBALANCESERVICE_H__
+#ifndef __REBALANCESERVICE_H__
 #define __REBALANCESERVICE_H__
 
 #include "ServiceThread.h"
 
-class MQClientFactory;
-
-/**
-* Rebalance·þÎñ
-*
-*/
-class RebalanceService :public ServiceThread
+namespace rmq
 {
-public:
-	RebalanceService(MQClientFactory* pMQClientFactory);
-	~RebalanceService();
+	class MQClientFactory;
 
-	void Run();
-	std::string getServiceName();
+	/**
+	* Rebalance service
+	*
+	*/
+	class RebalanceService : public ServiceThread
+	{
+	public:
+	    RebalanceService(MQClientFactory* pMQClientFactory);
+	    ~RebalanceService();
 
-private:
-	MQClientFactory* m_pMQClientFactory;
-	static long s_WaitInterval;
-};
+	    void Run();
+	    std::string getServiceName();
+
+	private:
+	    MQClientFactory* m_pMQClientFactory;
+	    static long s_WaitInterval;
+	};
+}
 
 #endif

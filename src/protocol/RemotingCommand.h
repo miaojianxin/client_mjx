@@ -14,131 +14,140 @@
 * limitations under the License.
 */
 
-#if!defined __REMOTINGCOMMAND_H__
+#ifndef __REMOTINGCOMMAND_H__
 #define __REMOTINGCOMMAND_H__
 
 #include <sstream>
 #include <string>
+
+#include "RocketMQClient.h"
 #include "AtomicValue.h"
+#include "RefHandle.h"
 
-const std::string CODE_STRING="\"code\":";
-const std::string language_STRING="\"language\":";
-const std::string version_STRING="\"version\":";
-const std::string opaque_STRING="\"opaque\":";
-const std::string flag_STRING="\"flag\":";
-const std::string remark_STRING="\"remark\":";
-const std::string extFields_STRING="\"extFields\":";
-
-const std::string RemotingVersionKey = "rocketmq.remoting.version";
-
-class CommandCustomHeader;
-
-typedef enum
+namespace rmq
 {
-	REQUEST_COMMAND,
-	RESPONSE_COMMAND
-} RemotingCommandType;
+    const std::string CODE_STRING = "\"code\":";
+    const std::string language_STRING = "\"language\":";
+    const std::string version_STRING = "\"version\":";
+    const std::string opaque_STRING = "\"opaque\":";
+    const std::string flag_STRING = "\"flag\":";
+    const std::string remark_STRING = "\"remark\":";
+    const std::string extFields_STRING = "\"extFields\":";
 
-typedef enum
-{
-	SUCCESS_VALUE = 0,// 成功
-	SYSTEM_ERROR_VALUE,// 发生了未捕获异常
-	SYSTEM_BUSY_VALUE,// 由于线程池拥堵，系统繁忙
-	REQUEST_CODE_NOT_SUPPORTED_VALUE ,// 请求代码不支持
-} ResponseCode;
+    const std::string RemotingVersionKey = "rocketmq.remoting.version";
 
-typedef enum
-{
-	JAVA,
-	CPP,
-	DOTNET,
-	PYTHON,
-	DELPHI,
-	ERLANG,
-	RUBY,
-	OTHER,
-} LanguageCode;
+    class CommandCustomHeader;
 
-const int RPC_TYPE = 0; // 0, REQUEST_COMMAND // 1, RESPONSE_COMMAND
-const int RPC_ONEWAY = 1; // 0, RPC // 1, Oneway
+    typedef enum
+    {
+        REQUEST_COMMAND,
+        RESPONSE_COMMAND
+    } RemotingCommandType;
 
-class RemotingCommand
-{
-public:
-	RemotingCommand(int code);
-	RemotingCommand(int code,
-					const std::string& language,
-					int version,
-					int opaque,
-					int flag,
-					const std::string& remark,
-					CommandCustomHeader* pCustomHeader);
-	~RemotingCommand();
+    typedef enum
+    {
+        SUCCESS_VALUE = 0,
+        SYSTEM_ERROR_VALUE,
+        SYSTEM_BUSY_VALUE,
+        REQUEST_CODE_NOT_SUPPORTED_VALUE,
+    } ResponseCode;
 
-	void Encode();
+    typedef enum
+    {
+        JAVA,
+        CPP,
+        DOTNET,
+        PYTHON,
+        DELPHI,
+        ERLANG,
+        RUBY,
+        OTHER,
+    } LanguageCode;
 
-	const char* GetHead();
-	int GetHeadLen();
-	void SetData(char* pData,int len);
+    const int RPC_TYPE = 0; // 0, REQUEST_COMMAND // 1, RESPONSE_COMMAND
+    const int RPC_ONEWAY = 1; // 0, RPC // 1, Oneway
 
-	const char* GetBody();
-	int GetBodyLen();
-	void SetBody(char* pData,int len,bool copy);
-	void MakeCustomHeader(int code,const char* pData,int len);
+    class RemotingCommand : public kpr::RefCount
+    {
+    public:
+        RemotingCommand(int code);
+        RemotingCommand(int code,
+                        const std::string& language,
+                        int version,
+                        int opaque,
+                        int flag,
+                        const std::string& remark,
+                        CommandCustomHeader* pCustomHeader);
+        ~RemotingCommand();
 
-	int getCode();
-	void setCode(int code);
+        void encode();
+        std::string toString() const;
 
-	std::string getLanguage();
-	void setLanguage(const std::string& language);
+        const char* getData();
+        int getDataLen();
 
-	int getVersion();
-	void setVersion(int version);
+        const char* getBody();
+        int getBodyLen();
+        void setBody(char* pData, int len, bool copy);
+        CommandCustomHeader* makeCustomHeader(int code, const char* pData, int len);
 
-	int getOpaque();
-	void setOpaque(int opaque);
+        int getCode();
+        void setCode(int code);
 
-	int getFlag();
-	void setFlag(int flag);
+        std::string getLanguage();
+        void setLanguage(const std::string& language);
 
-	std::string getRemark();
-	void setRemark(const std::string& remark);
+        int getVersion();
+        void setVersion(int version);
 
-	void setCommandCustomHeader(CommandCustomHeader* pCommandCustomHeader);
-	CommandCustomHeader*getCommandCustomHeader();
+        int getOpaque();
+        void setOpaque(int opaque);
 
-	RemotingCommandType getType();
-	void markResponseType();
-	bool isResponseType() ;
-	void markOnewayRPC();
-	bool isOnewayRPC();
+        int getFlag();
+        void setFlag(int flag);
 
-	static void setCmdVersion(RemotingCommand* pCmd);
-	static RemotingCommand* CreateRemotingCommand(const char* pData,int len);
-	static RemotingCommand* createRequestCommand(int code, CommandCustomHeader* pCustomHeader);
-	static RemotingCommand* Decode(char* pData,int len);
+        std::string getRemark();
+        void setRemark(const std::string& remark);
 
-private:
-	static volatile int s_configVersion;
+        void setCommandCustomHeader(CommandCustomHeader* pCommandCustomHeader);
+        CommandCustomHeader* getCommandCustomHeader();
 
-private:
-	int m_code;
-	std::string m_language;
-	int m_version;
-	int m_opaque;
-	int m_flag;
-	std::string m_remark;
-	CommandCustomHeader* m_pCustomHeader;
+        RemotingCommandType getType();
+        void markResponseType();
+        bool isResponseType() ;
+        void markOnewayRPC();
+        bool isOnewayRPC();
 
-	int m_headLen;
-	char* m_pHead;
+        static void setCmdVersion(RemotingCommand* pCmd);
+		static RemotingCommand* decode(const char* pData, int len);
+        static RemotingCommand* createRequestCommand(int code, CommandCustomHeader* pCustomHeader);
+		static RemotingCommand* createResponseCommand(int code, const std::string& remark);
+		static RemotingCommand* createResponseCommand(int code, const std::string& remark, CommandCustomHeader* pCustomHeader);
 
-	int m_bodyLen;
-	char* m_pBody;
 
-	bool m_releaseBody;
+    private:
+        static volatile int s_configVersion;
 
-	static AtomicInteger s_seqNumber;
-};
+    private:
+        int m_code;
+        std::string m_language;
+        int m_version;
+        int m_opaque;
+        int m_flag;
+        std::string m_remark;
+        CommandCustomHeader* m_pCustomHeader;
+
+        int m_dataLen;
+        char* m_pData;
+
+        int m_bodyLen;
+        char* m_pBody;
+
+        bool m_releaseBody;
+
+        static kpr::AtomicInteger s_seqNumber;
+    };
+    typedef kpr::RefHandleT<RemotingCommand> RemotingCommandPtr;
+}
 
 #endif

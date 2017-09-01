@@ -14,74 +14,84 @@
 * limitations under the License.
 */
 
-#if!defined __GETCONSUMERLISTBYGROUPRESPONSEBODY_H__
+#ifndef __GETCONSUMERLISTBYGROUPRESPONSEBODY_H__
 #define __GETCONSUMERLISTBYGROUPRESPONSEBODY_H__
 
 #include <string>
+#include <sstream>
 #include <list>
-#include "json/json.h"
-
+#include "UtilAll.h"
 #include "RemotingSerializable.h"
 
-class GetConsumerListByGroupResponseBody : public RemotingSerializable
+namespace rmq
 {
-public:
-	GetConsumerListByGroupResponseBody()
-	{
+    class GetConsumerListByGroupResponseBody : public RemotingSerializable
+    {
+    public:
+        GetConsumerListByGroupResponseBody()
+        {
 
-	}
-	
-	~GetConsumerListByGroupResponseBody()
-	{
+        }
 
-	}
+        ~GetConsumerListByGroupResponseBody()
+        {
 
-	void Encode(std::string& outData)
-	{
+        }
 
-	}
+        void encode(std::string& outData)
+        {
 
-	static GetConsumerListByGroupResponseBody* Decode(char* pData,int len)
-	{
-		//"consumerIdList":["192.168.1.120@DEFAULT"]
-		GetConsumerListByGroupResponseBody* ret =  new GetConsumerListByGroupResponseBody();
-		Json::Reader reader;
-		Json::Value object;
-		if (!reader.parse(pData, object))
-		{
-			return NULL;
-		}
+        }
 
-		std::list<std::string> consumers;
+        static GetConsumerListByGroupResponseBody* decode(const char* pData, int len)
+        {
+            /*
+            {"consumerIdList":["10.12.22.213@DEFAULT", "10.12.22.213@xxx"]}
+            */
+            //RMQ_DEBUG("GET_CONSUMER_LIST_BY_GROUP_VALUE:%s", pData);
 
-		Json::Value ext = object["consumerIdList"];
+            Json::Reader reader;
+            Json::Value object;
+            if (!reader.parse(pData, pData + len, object))
+            {
+                RMQ_ERROR("parse fail: %s", reader.getFormattedErrorMessages().c_str());
+                return NULL;
+            }
 
-		for (int i=0;i< ext.size();i++)
-		{
-			Json::Value v = ext[i];
-			if (v!=Json::Value::null)
-			{
-				consumers.push_back(v.asString());
-			}
-		}
-		
-		ret->setConsumerIdList(consumers);
+            GetConsumerListByGroupResponseBody* rsp =  new GetConsumerListByGroupResponseBody();
+            Json::Value cidList = object["consumerIdList"];
+            for (size_t i = 0; i < cidList.size(); i++)
+            {
+                Json::Value cid = cidList[i];
+                if (cid != Json::Value::null)
+                {
+                    rsp->m_consumerIdList.push_back(cid.asString());
+                }
+            }
 
-		return ret;
-	}
+            return rsp;
+        }
 
-	std::list<std::string>& getConsumerIdList()
-	{
-		return m_consumerIdList;
-	}
+        std::list<std::string>& getConsumerIdList()
+        {
+            return m_consumerIdList;
+        }
 
-	void setConsumerIdList(const std::list<std::string>& consumerIdList)
-	{
-		m_consumerIdList = consumerIdList;
-	}
+        void setConsumerIdList(const std::list<std::string>& consumerIdList)
+        {
+            m_consumerIdList = consumerIdList;
+        }
 
-private:
-	std::list<std::string> m_consumerIdList;
-};
+        std::string toString() const
+        {
+            std::stringstream ss;
+            ss << "{consumerIdList=" << UtilAll::toString(m_consumerIdList) << "}";
+            return ss.str();
+        }
+
+    private:
+        std::list<std::string> m_consumerIdList;
+    };
+}
 
 #endif

@@ -14,7 +14,7 @@
 * limitations under the License.
 */
 
-#if!defined __DEFAULTMQPRODUCERIMPL_H__
+#ifndef __DEFAULTMQPRODUCERIMPL_H__
 #define __DEFAULTMQPRODUCERIMPL_H__
 
 #include <list>
@@ -25,166 +25,181 @@
 #include "CommunicationMode.h"
 #include "SendResult.h"
 #include "MQClientException.h"
+#include "Mutex.h"
+#include "ScopedLock.h"
 
-class DefaultMQProducer;
-class SendMessageHook;
-class SendMessageContext;
-class MessageQueue;
-class MessageExt;
-class SendCallback;
-class MessageQueueSelector;
-class MQClientFactory;
-class MQClientException;
-class RemotingException;
-class MQBrokerException;
-class InterruptedException;
-class LocalTransactionExecuter;
 
-/**
-* 生产者默认实现
-*
-*/
-class DefaultMQProducerImpl : public MQProducerInner
+namespace rmq
 {
-public:
-	DefaultMQProducerImpl(DefaultMQProducer* pDefaultMQProducer);
-	void initTransactionEnv();
-	void destroyTransactionEnv();
+    class DefaultMQProducer;
+    class SendMessageHook;
+    class SendMessageContext;
+    class MessageQueue;
+    class MessageExt;
+    class SendCallback;
+    class MessageQueueSelector;
+    class MQClientFactory;
+    class MQClientException;
+    class RemotingException;
+    class MQBrokerException;
+    class InterruptedException;
+    class LocalTransactionExecuter;
 
-	bool hasHook();
-	void registerHook(SendMessageHook* pHook);
-	void executeHookBefore(const SendMessageContext& context);
-	void executeHookAfter(const SendMessageContext& context);
 
-	void start();
-	void start(bool startFactory);
-	void shutdown();
-	void shutdown(bool shutdownFactory);
+    class DefaultMQProducerImpl : public MQProducerInner
+    {
+    public:
+        DefaultMQProducerImpl(DefaultMQProducer* pDefaultMQProducer);
+		~DefaultMQProducerImpl();
+        void initTransactionEnv();
+        void destroyTransactionEnv();
 
-	//父类接口实现
-	std::set<std::string> getPublishTopicList();
-	bool isPublishTopicNeedUpdate(const std::string& topic);
+        bool hasHook();
+        void registerHook(SendMessageHook* pHook);
+        void executeHookBefore(const SendMessageContext& context);
+        void executeHookAfter(const SendMessageContext& context);
 
-	void checkTransactionState(const std::string& addr,
-							   const MessageExt& msg,
-							   const CheckTransactionStateRequestHeader& checkRequestHeader);
+        void start();
+        void start(bool startFactory);
+        void shutdown();
+        void shutdown(bool shutdownFactory);
 
-	void updateTopicPublishInfo(const std::string& topic, TopicPublishInfo& info);
-	virtual TransactionCheckListener* checkListener();
-	//父类接口实现 end
+        std::set<std::string> getPublishTopicList();
+        bool isPublishTopicNeedUpdate(const std::string& topic);
 
-	void createTopic(const std::string& key, const std::string& newTopic, int queueNum);
+        void checkTransactionState(const std::string& addr,
+                                   const MessageExt& msg,
+                                   const CheckTransactionStateRequestHeader& checkRequestHeader);
 
-	std::vector<MessageQueue>* fetchPublishMessageQueues(const std::string& topic);
+        void updateTopicPublishInfo(const std::string& topic, TopicPublishInfo& info);
+        virtual TransactionCheckListener* checkListener();
 
-	long long searchOffset(const MessageQueue& mq, long long timestamp);
-	long long maxOffset(const MessageQueue& mq);
-	long long minOffset(const MessageQueue& mq);
+        void createTopic(const std::string& key, const std::string& newTopic, int queueNum);
+        std::vector<MessageQueue>* fetchPublishMessageQueues(const std::string& topic);
 
-	long long earliestMsgStoreTime(const MessageQueue& mq);
+        long long searchOffset(const MessageQueue& mq, long long timestamp);
+        long long maxOffset(const MessageQueue& mq);
+        long long minOffset(const MessageQueue& mq);
 
-	MessageExt viewMessage(const std::string& msgId);
-	QueryResult queryMessage(const std::string& topic,
-							 const std::string& key,
-							 int maxNum,
-							 long long begin,
-							 long long end);
+        long long earliestMsgStoreTime(const MessageQueue& mq);
 
-	/**
-	* DEFAULT ASYNC -------------------------------------------------------
-	*/
-	void send(Message& msg, SendCallback* sendCallback);
+        MessageExt* viewMessage(const std::string& msgId);
+        QueryResult queryMessage(const std::string& topic,
+                                 const std::string& key,
+                                 int maxNum,
+                                 long long begin,
+                                 long long end);
 
-	/**
-	* DEFAULT ONEWAY -------------------------------------------------------
-	*/
-	void sendOneway(Message& msg);
+        /**
+        * DEFAULT ASYNC -------------------------------------------------------
+        */
+        void send(Message& msg, SendCallback* sendCallback);
+		void send(Message& msg, SendCallback* sendCallback, int timeout);
 
-	/**
-	* KERNEL SYNC -------------------------------------------------------
-	*/
-	SendResult send(Message& msg, MessageQueue& mq);
+        /**
+        * DEFAULT ONEWAY -------------------------------------------------------
+        */
+        void sendOneway(Message& msg);
 
-	/**
-	* KERNEL ASYNC -------------------------------------------------------
-	*/
-	void send(Message& msg, MessageQueue& mq, SendCallback* sendCallback);
+        /**
+        * KERNEL SYNC -------------------------------------------------------
+        */
+        SendResult send(Message& msg, MessageQueue& mq);
+		SendResult send(Message& msg, MessageQueue& mq, int timeout);
 
-	/**
-	* KERNEL ONEWAY -------------------------------------------------------
-	*/
-	void sendOneway(Message& msg, MessageQueue& mq);
+        /**
+        * KERNEL ASYNC -------------------------------------------------------
+        */
+        void send(Message& msg, MessageQueue& mq, SendCallback* sendCallback);
+		void send(Message& msg, MessageQueue& mq, SendCallback* sendCallback, int timeout);
 
-	/**
-	* SELECT SYNC -------------------------------------------------------
-	*/
-	SendResult send(Message& msg, MessageQueueSelector* selector, void* arg);
+        /**
+        * KERNEL ONEWAY -------------------------------------------------------
+        */
+        void sendOneway(Message& msg, MessageQueue& mq);
 
-	/**
-	* SELECT ASYNC -------------------------------------------------------
-	*/
-	void send(Message& msg, MessageQueueSelector* selector, void* arg, SendCallback* sendCallback);
+        /**
+        * SELECT SYNC -------------------------------------------------------
+        */
+        SendResult send(Message& msg, MessageQueueSelector* selector, void* arg);
+		SendResult send(Message& msg, MessageQueueSelector* selector, void* arg, int timeout);
 
-	/**
-	* SELECT ONEWAY -------------------------------------------------------
-	*/
-	void sendOneway(Message& msg, MessageQueueSelector* selector, void* arg);
+        /**
+        * SELECT ASYNC -------------------------------------------------------
+        */
+        void send(Message& msg, MessageQueueSelector* selector, void* arg, SendCallback* sendCallback);
+		void send(Message& msg, MessageQueueSelector* selector, void* arg, SendCallback* sendCallback, int timeout);
 
-	TransactionSendResult sendMessageInTransaction(Message& msg, LocalTransactionExecuter* tranExecuter, void* arg);
+        /**
+        * SELECT ONEWAY -------------------------------------------------------
+        */
+        void sendOneway(Message& msg, MessageQueueSelector* selector, void* arg);
 
-	/**
-	* DEFAULT SYNC -------------------------------------------------------
-	*/
-	SendResult send(Message& msg);
+		/**
+		* SEND with Transaction
+		*/
+        TransactionSendResult sendMessageInTransaction(Message& msg, LocalTransactionExecuter* tranExecuter, void* arg);
 
-	std::map<std::string, TopicPublishInfo> getTopicPublishInfoTable();
+        /**
+        * DEFAULT SYNC -------------------------------------------------------
+        */
+        SendResult send(Message& msg);
+		SendResult send(Message& msg, int timeout);
 
-	MQClientFactory* getmQClientFactory();
+        std::map<std::string, TopicPublishInfo> getTopicPublishInfoTable();
 
-	int getZipCompressLevel();
-	void setZipCompressLevel(int zipCompressLevel);
+        MQClientFactory* getMQClientFactory();
 
-private:
-	SendResult sendSelectImpl(Message& msg,
-							  MessageQueueSelector* selector,
-							  void* pArg,
-							  CommunicationMode communicationMode,
-							  SendCallback* sendCallback);
+        int getZipCompressLevel();
+        void setZipCompressLevel(int zipCompressLevel);
 
-	SendResult sendDefaultImpl(Message& msg,
-							   CommunicationMode communicationMode,
-							   SendCallback* pSendCallback);
+		ServiceState getServiceState();
+		void setServiceState(ServiceState serviceState);
 
-	SendResult sendKernelImpl(Message& msg,
-							  const MessageQueue& mq,
-							  CommunicationMode communicationMode,
-							  SendCallback* pSendCallback);
+    private:
+        SendResult sendSelectImpl(Message& msg,
+                                  MessageQueueSelector* selector,
+                                  void* pArg,
+                                  CommunicationMode communicationMode,
+                                  SendCallback* sendCallback,
+                                  int timeout);
 
-	void endTransaction(SendResult sendResult,
-						LocalTransactionState localTransactionState,
-						MQClientException localException);
+        SendResult sendDefaultImpl(Message& msg,
+                                   CommunicationMode communicationMode,
+                                   SendCallback* pSendCallback,
+                                   int timeout);
 
-	void makeSureStateOK();
-	void checkConfig();
+        SendResult sendKernelImpl(Message& msg,
+                                  const MessageQueue& mq,
+                                  CommunicationMode communicationMode,
+                                  SendCallback* pSendCallback,
+                                  int timeout);
 
-	/**
-	* 尝试寻找Topic路由信息，如果没有则到Name Server上找，再没有，则取默认Topic
-	*/
-	TopicPublishInfo tryToFindTopicPublishInfo(const std::string& topic) ;
+        void endTransaction(SendResult sendResult,
+                            LocalTransactionState localTransactionState,
+                            MQClientException localException);
 
-	bool tryToCompressMessage(Message& msg);
+        void makeSureStateOK();
+        void checkConfig();
 
-protected:
-	//TODO 事务相关队列 及 检测线程
+        TopicPublishInfo& tryToFindTopicPublishInfo(const std::string& topic) ;
+        bool tryToCompressMessage(Message& msg);
 
-private:
-	int m_zipCompressLevel;// 消息压缩level，默认5
+    protected:
+        //TODO transaction imp
 
-	DefaultMQProducer* m_pDefaultMQProducer;
-	std::map<std::string, TopicPublishInfo> m_topicPublishInfoTable;
-	ServiceState m_serviceState;
-	MQClientFactory* m_pMQClientFactory;
-	std::list<SendMessageHook*> m_hookList;//发送每条消息会回调
-};
+    private:
+        int m_zipCompressLevel;// message compress level, default is 5
+
+        DefaultMQProducer* m_pDefaultMQProducer;
+
+        std::map<std::string, TopicPublishInfo> m_topicPublishInfoTable;
+		kpr::RWMutex m_topicPublishInfoTableLock;
+
+        ServiceState m_serviceState;
+        MQClientFactory* m_pMQClientFactory;
+        std::list<SendMessageHook*> m_hookList;
+    };
+}
 
 #endif

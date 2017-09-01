@@ -17,111 +17,116 @@
 
 #include <stdlib.h>
 #include <stdio.h>
-
 #include "MQClientException.h"
 #include "UtilAll.h"
 #include "MixAll.h"
 #include "Message.h"
+#include "MQProtos.h"
 #include "DefaultMQProducer.h"
 
+namespace rmq
+{
+
 const std::string Validators::validPatternStr = "^[a-zA-Z0-9_-]+$";
-const int Validators::CHARACTER_MAX_LENGTH = 255;
+const size_t Validators::CHARACTER_MAX_LENGTH = 255;
 
 bool Validators::regularExpressionMatcher(const std::string& origin, const std::string& patternStr)
 {
-	if (UtilAll::isBlank(origin))
-	{
-		return false;
-	}
+    if (UtilAll::isBlank(origin))
+    {
+        return false;
+    }
 
-	if (UtilAll::isBlank(patternStr))
-	{
-		return true;
-	}
+    if (UtilAll::isBlank(patternStr))
+    {
+        return true;
+    }
 
-	//Pattern pattern = Pattern.compile(patternStr);
-	//Matcher matcher = pattern.matcher(origin);
+    //Pattern pattern = Pattern.compile(patternStr);
+    //Matcher matcher = pattern.matcher(origin);
 
-	//return matcher.matches();
-	return true;
+    //return matcher.matches();
+    return true;
 }
 
 std::string Validators::getGroupWithRegularExpression(const std::string& origin, const std::string& patternStr)
 {
-	/*Pattern pattern = Pattern.compile(patternStr);
-	Matcher matcher = pattern.matcher(origin);
-	while (matcher.find()) {
-	return matcher.group(0);
-	}*/
-	return "";
+    /*Pattern pattern = Pattern.compile(patternStr);
+    Matcher matcher = pattern.matcher(origin);
+    while (matcher.find()) {
+    return matcher.group(0);
+    }*/
+    return "";
 }
 
 void Validators::checkTopic(const std::string& topic)
 {
-	if (UtilAll::isBlank(topic))
-	{
-		THROW_MQEXCEPTION(MQClientException,"the specified topic is blank",-1);
-	}
+    if (UtilAll::isBlank(topic))
+    {
+        THROW_MQEXCEPTION(MQClientException, "the specified topic is blank", -1);
+    }
 
-	if (topic.length() > CHARACTER_MAX_LENGTH)
-	{
-		THROW_MQEXCEPTION(MQClientException,"the specified topic is longer than topic max length 255.", -1);
-	}
+    if (topic.length() > CHARACTER_MAX_LENGTH)
+    {
+        THROW_MQEXCEPTION(MQClientException, "the specified topic is longer than topic max length 255.", -1);
+    }
 
-	// TopicÃû×ÖÊÇ·ñÓë±£Áô×Ö¶Î³åÍ»
-	if (topic == MixAll::DEFAULT_TOPIC)
-	{
-		THROW_MQEXCEPTION(MQClientException,"the topic["+topic+"] is conflict with default topic.",-1);
-	}
+    // TopicÃû×ÖÊÇ·ñÓë±£Áô×Ö¶Î³åÍ»
+    if (topic == MixAll::DEFAULT_TOPIC)
+    {
+        THROW_MQEXCEPTION(MQClientException, "the topic[" + topic + "] is conflict with default topic.", -1);
+    }
 
-	if (!regularExpressionMatcher(topic, validPatternStr))
-	{
-		std::string str;
-		str = "the specified topic["+topic+"] contains illegal characters, allowing only"+validPatternStr;
+    if (!regularExpressionMatcher(topic, validPatternStr))
+    {
+        std::string str;
+        str = "the specified topic[" + topic + "] contains illegal characters, allowing only" + validPatternStr;
 
-		THROW_MQEXCEPTION(MQClientException,str.c_str(), -1);
-	}
+        THROW_MQEXCEPTION(MQClientException, str.c_str(), -1);
+    }
 }
 
 void Validators::checkGroup(const std::string& group)
 {
-	if (UtilAll::isBlank(group))
-	{
-		THROW_MQEXCEPTION(MQClientException,"the specified group is blank", -1);
-	}
+    if (UtilAll::isBlank(group))
+    {
+        THROW_MQEXCEPTION(MQClientException, "the specified group is blank", -1);
+    }
 
-	if (!regularExpressionMatcher(group, validPatternStr))
-	{
-		std::string str;
-		str = "the specified group["+group+"] contains illegal characters, allowing only"+validPatternStr;
+    if (!regularExpressionMatcher(group, validPatternStr))
+    {
+        std::string str;
+        str = "the specified group[" + group + "] contains illegal characters, allowing only" + validPatternStr;
 
-		THROW_MQEXCEPTION(MQClientException,str.c_str(),-1);
-	}
-	if (group.length() > CHARACTER_MAX_LENGTH)
-	{
-		THROW_MQEXCEPTION(MQClientException,"the specified group is longer than group max length 255.", -1);
-	}
+        THROW_MQEXCEPTION(MQClientException, str.c_str(), -1);
+    }
+    if (group.length() > CHARACTER_MAX_LENGTH)
+    {
+        THROW_MQEXCEPTION(MQClientException, "the specified group is longer than group max length 255.", -1);
+    }
 }
 
-void Validators::checkMessage(const Message& msg, int maxMessageSize)
+void Validators::checkMessage(const Message& msg, DefaultMQProducer* pDefaultMQProducer)
 {
-	checkTopic(msg.getTopic());
-	
-	//// body
-	if ( msg.getBody()==NULL) 
-	{
-		THROW_MQEXCEPTION(MQClientException,"the message body is null",-1);
-	}
+    checkTopic(msg.getTopic());
 
-	if (msg.getBodyLen()==0) 
-	{
-		THROW_MQEXCEPTION(MQClientException,"the message body length is zero",-1);
-	}
+    //// body
+    if (msg.getBody() == NULL)
+    {
+        THROW_MQEXCEPTION(MQClientException, "the message body is null", MESSAGE_ILLEGAL_VALUE);
+    }
 
-	if (msg.getBodyLen() > maxMessageSize) 
-	{
-		char info[256];
-		sprintf(info,"the message body size over max value, MAX: %d", maxMessageSize);
-		THROW_MQEXCEPTION(MQClientException,info,-1);
-	}
+    if (msg.getBodyLen() == 0)
+    {
+        THROW_MQEXCEPTION(MQClientException, "the message body length is zero", MESSAGE_ILLEGAL_VALUE);
+    }
+
+    if (msg.getBodyLen() > pDefaultMQProducer->getMaxMessageSize())
+    {
+        char info[256];
+        snprintf(info, sizeof(info), "the message body size over max value, MAX: %d", pDefaultMQProducer->getMaxMessageSize());
+        THROW_MQEXCEPTION(MQClientException, info, MESSAGE_ILLEGAL_VALUE);
+    }
+}
+
 }

@@ -13,23 +13,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#if!defined __MESSAGEQUEUELISTENER_H__
-#define __MESSAGEQUEUELISTENER_H__
+#ifndef __RMQ_MESSAGEQUEUELISTENER_H__
+#define __RMQ_MESSAGEQUEUELISTENER_H__
 
 #include <set>
 #include "RocketMQClient.h"
 
-/**
- * 队列变化监听器
- *
- */
-class ROCKETMQCLIENT_API MessageQueueListener
+namespace rmq
 {
-public:
-	virtual ~MessageQueueListener() {}
-	virtual void messageQueueChanged(const std::string& topic, 
-		std::set<MessageQueue>& mqAll,
-		std::set<MessageQueue>& mqDivided)=0;
-};
+	/**
+	 * Message Queue Listener
+	 *
+	 */
+	class MessageQueueListener
+	{
+	public:
+		virtual ~MessageQueueListener() {}
+		virtual void messageQueueChanged(const std::string& topic,
+			std::set<MessageQueue>& mqAll,
+			std::set<MessageQueue>& mqDivided)=0;
+	};
+}
 
 #endif

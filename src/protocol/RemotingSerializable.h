@@ -14,18 +14,20 @@
 * limitations under the License.
 */
 
-#if!defined __REMOTINGSERIALIZABLE_H__
+#ifndef __REMOTINGSERIALIZABLE_H__
 #define __REMOTINGSERIALIZABLE_H__
 
-/**
-* 复杂对象的序列化，利用json来实现
-*
-*/
-class RemotingSerializable
+#include "RocketMQClient.h"
+#include "RefHandle.h"
+
+namespace rmq
 {
-public:
-	virtual ~RemotingSerializable() {};
-	virtual void Encode(std::string& outData)=0;
-};
+	class RemotingSerializable : public kpr::RefCount
+	{
+	public:
+	    virtual ~RemotingSerializable() {};
+	    virtual void encode(std::string& outData) = 0;
+	};
+}
 
 #endif

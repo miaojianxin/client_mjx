@@ -13,13 +13,16 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 */
-#if!defined __FINDBROKERRESULT_H__
+#ifndef __FINDBROKERRESULT_H__
 #define __FINDBROKERRESULT_H__
 
-typedef struct
+namespace rmq
 {
-	std::string brokerAddr;
-	bool slave;
-} FindBrokerResult;
+	typedef struct
+	{
+	    std::string brokerAddr;
+	    bool slave;
+	} FindBrokerResult;
+}
 
 #endif

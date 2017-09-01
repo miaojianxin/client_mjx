@@ -13,106 +13,40 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 */
-
 #include "HeartbeatData.h"
-#include <sstream>
 
-HeartbeatData::HeartbeatData()
+namespace rmq
 {
+
+void HeartbeatData::encode(std::string& outData)
+{
+    //{"clientID":"10.6.223.90@16164","consumerDataSet":[{"consumeFromWhere":"CONSUME_FROM_LAST_OFFSET","consumeType":"CONSUME_ACTIVELY","groupName":"please_rename_unique_group_name_5","messageModel":"CLUSTERING","subscriptionDataSet":[],"unitMode":false}],"producerDataSet":[{"groupName":"CLIENT_INNER_PRODUCER"}]}
+    Json::Value obj;
+    obj["clientID"] = m_clientID;
+
+    Json::Value consumerDataSet(Json::arrayValue);
+    for (typeof(m_consumerDataSet.begin()) it = m_consumerDataSet.begin(); it != m_consumerDataSet.end(); it++)
+    {
+        Json::Value o;
+        (*it).toJson(o);
+        consumerDataSet.append(o);
+    }
+    obj["consumerDataSet"] = consumerDataSet;
+
+    Json::Value producerDataSet(Json::arrayValue);
+    for (typeof(m_producerDataSet.begin()) it = m_producerDataSet.begin(); it != m_producerDataSet.end(); it++)
+    {
+        Json::Value o;
+        it->toJson(o);
+        producerDataSet.append(o);
+    }
+    obj["producerDataSet"] = producerDataSet;
+
+    Json::FastWriter outer;
+    outData = outer.write(obj);
 }
 
-HeartbeatData::~HeartbeatData()
-{
-}
 
-void HeartbeatData::Encode(std::string& outData)
-{
-	std::stringstream ss;
-	std::string consumerDataSet;
 
-	std::set<ConsumerData>::iterator it = m_consumerDataSet.begin();
 
-	for (;it!=m_consumerDataSet.end();it++)
-	{
-		const ConsumerData& data=*it;
-		std::string subscriptionDataSet;
-		std::stringstream s1;
-
-		std::set<SubscriptionData>::iterator it1 = data.subscriptionDataSet.begin();
-
-		for (;it1!= data.subscriptionDataSet.end();it1++)
-		{
-			SubscriptionData data1 = *it1;
-			std::string sdata;
-			data1.encode(sdata);
-			subscriptionDataSet.append(sdata).append(",");
-		}
-
-		if (!subscriptionDataSet.empty())
-		{
-			subscriptionDataSet.pop_back();
-		}
-
-		s1<<"{"<<"\"consumeFromWhere\":\""<<getConsumeFromWhereString(data.consumeFromWhere)<<"\","
-			<<"\"consumeType\":\""<<getConsumeTypeString(data.consumeType)<<"\","
-			<<"\"groupName\":\""<<data.groupName<<"\","
-			<<"\"messageModel\":\""<<getMessageModelString(data.messageModel)<<"\","
-			<<"\"subscriptionDataSet\":["<<subscriptionDataSet<<"]},";
-
-		consumerDataSet+= s1.str();
-	}
-
-	if (!consumerDataSet.empty())
-	{
-		consumerDataSet.pop_back();
-	}
-
-	std::string producerDataSet;
-	std::set<ProducerData>::iterator it1 = m_producerDataSet.begin();
-	for (;it1!=m_producerDataSet.end();it1++)
-	{
-		const ProducerData&  data = *it1;
-		producerDataSet.append("{\"groupName\":\"").append(data.groupName).append("\"},");
-	}
-
-	if (!producerDataSet.empty())
-	{
-		producerDataSet.pop_back();
-	}
-
-	ss<<"{"<<"\"clientID\":\""<<m_clientID<<"\","
-		<<"\"consumerDataSet\":["<<consumerDataSet<<"],"
-		<<"\"producerDataSet\":["<<producerDataSet<<"]}";
-
-	outData = ss.str();
-}
-
-std::string HeartbeatData::getClientID()
-{
-	return m_clientID;
-}
-
-void HeartbeatData::setClientID(const std::string& clientID)
-{
-	m_clientID = clientID;
-}
-
-std::set<ProducerData>& HeartbeatData::getProducerDataSet()
-{
-	return m_producerDataSet;
-}
-
-void HeartbeatData::setProducerDataSet(const std::set<ProducerData>& producerDataSet)
-{
-	m_producerDataSet = producerDataSet;
-}
-
-std::set<ConsumerData>& HeartbeatData::getConsumerDataSet()
-{
-	return m_consumerDataSet;
-}
-
-void HeartbeatData::setConsumerDataSet(const std::set<ConsumerData>& consumerDataSet)
-{
-	m_consumerDataSet = consumerDataSet;
 }

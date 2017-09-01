@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#if!defined __MQCONSUMERINNER_H__
+#ifndef __MQCONSUMERINNER_H__
 #define __MQCONSUMERINNER_H__
 
 #include <string>
@@ -22,25 +22,25 @@
 
 #include "ConsumeType.h"
 #include "SubscriptionData.h"
-class MessageQueue;
 
-/**
- * Consumer内部接口，供MQClientFactory使用
- *
- */
-class MQConsumerInner
+namespace rmq
 {
-public:
-	virtual ~MQConsumerInner() {}
-	virtual std::string groupName()=0;
-	virtual MessageModel messageModel()=0;
-	virtual ConsumeType consumeType()=0;
-	virtual ConsumeFromWhere consumeFromWhere()=0;
-	virtual std::set<SubscriptionData> subscriptions()=0;
-	virtual void doRebalance()=0;
-	virtual void persistConsumerOffset()=0;
-	virtual void updateTopicSubscribeInfo(const std::string& topic, const std::set<MessageQueue>& info)=0;
-	virtual bool isSubscribeTopicNeedUpdate(const std::string& topic)=0;
-};
+    class MessageQueue;
+
+    class MQConsumerInner
+    {
+    public:
+        virtual ~MQConsumerInner() {}
+        virtual std::string groupName() = 0;
+        virtual MessageModel messageModel() = 0;
+        virtual ConsumeType consumeType() = 0;
+        virtual ConsumeFromWhere consumeFromWhere() = 0;
+        virtual std::set<SubscriptionData> subscriptions() = 0;
+        virtual void doRebalance() = 0;
+        virtual void persistConsumerOffset() = 0;
+        virtual void updateTopicSubscribeInfo(const std::string& topic, const std::set<MessageQueue>& info) = 0;
+        virtual bool isSubscribeTopicNeedUpdate(const std::string& topic) = 0;
+    };
+}
 
 #endif

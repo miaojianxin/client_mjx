@@ -13,107 +13,106 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 */
-#if!defined __TRANSACTIONMQPRODUCER_H__
+#ifndef __TRANSACTIONMQPRODUCER_H__
 #define __TRANSACTIONMQPRODUCER_H__
 
 #include "DefaultMQProducer.h"
 #include "DefaultMQProducerImpl.h"
 #include "MQClientException.h"
 
-/**
-* 支持分布式事务Producer
-*
-*/
-class TransactionMQProducer : public DefaultMQProducer
+namespace rmq
 {
-public:
-	TransactionMQProducer()
-		: m_pTransactionCheckListener(NULL),
-		  m_checkThreadPoolMinSize(1),
-		  m_checkThreadPoolMaxSize(1),
-		  m_checkRequestHoldMax(2000)
-	{
+    class TransactionMQProducer : public DefaultMQProducer
+    {
+    public:
+        TransactionMQProducer()
+            : m_pTransactionCheckListener(NULL),
+              m_checkThreadPoolMinSize(1),
+              m_checkThreadPoolMaxSize(1),
+              m_checkRequestHoldMax(2000)
+        {
 
-	}
+        }
 
-	TransactionMQProducer(const std::string& producerGroup)
-		:DefaultMQProducer(producerGroup),
-		 m_pTransactionCheckListener(NULL),
-		 m_checkThreadPoolMinSize(1),
-		 m_checkThreadPoolMaxSize(1),
-		 m_checkRequestHoldMax(2000)
-	{
+        TransactionMQProducer(const std::string& producerGroup)
+            : DefaultMQProducer(producerGroup),
+              m_pTransactionCheckListener(NULL),
+              m_checkThreadPoolMinSize(1),
+              m_checkThreadPoolMaxSize(1),
+              m_checkRequestHoldMax(2000)
+        {
 
-	}
+        }
 
-	void start()
-	{
-		m_pDefaultMQProducerImpl->initTransactionEnv();
-		DefaultMQProducer::start();
-	}
+        void start()
+        {
+            m_pDefaultMQProducerImpl->initTransactionEnv();
+            DefaultMQProducer::start();
+        }
 
-	void shutdown()
-	{
-		DefaultMQProducer::shutdown();
-		m_pDefaultMQProducerImpl->destroyTransactionEnv();
-	}
+        void shutdown()
+        {
+            DefaultMQProducer::shutdown();
+            m_pDefaultMQProducerImpl->destroyTransactionEnv();
+        }
 
-	TransactionSendResult sendMessageInTransaction(const Message& msg,
-			LocalTransactionExecuter* tranExecuter, void* arg)
-	{
-		if (NULL == m_pTransactionCheckListener)
-		{
-			THROW_MQEXCEPTION("localTransactionBranchCheckListener is null", -1);
-		}
+        TransactionSendResult sendMessageInTransaction(const Message& msg,
+                LocalTransactionExecuter* tranExecuter, void* arg)
+        {
+            if (NULL == m_pTransactionCheckListener)
+            {
+                THROW_MQEXCEPTION("localTransactionBranchCheckListener is null", -1);
+            }
 
-		return m_pDefaultMQProducerImpl.sendMessageInTransaction(msg, tranExecuter, arg);
-	}
+            return m_pDefaultMQProducerImpl.sendMessageInTransaction(msg, tranExecuter, arg);
+        }
 
-	TransactionCheckListener* getTransactionCheckListener()
-	{
-		return m_pTransactionCheckListener;
-	}
+        TransactionCheckListener* getTransactionCheckListener()
+        {
+            return m_pTransactionCheckListener;
+        }
 
-	void setTransactionCheckListener(TransactionCheckListener* pTransactionCheckListener)
-	{
-		m_pTransactionCheckListener = pTransactionCheckListener;
-	}
+        void setTransactionCheckListener(TransactionCheckListener* pTransactionCheckListener)
+        {
+            m_pTransactionCheckListener = pTransactionCheckListener;
+        }
 
-	int getCheckThreadPoolMinSize()
-	{
-		return m_checkThreadPoolMinSize;
-	}
+        int getCheckThreadPoolMinSize()
+        {
+            return m_checkThreadPoolMinSize;
+        }
 
-	void setCheckThreadPoolMinSize(int checkThreadPoolMinSize)
-	{
-		m_checkThreadPoolMinSize = checkThreadPoolMinSize;
-	}
+        void setCheckThreadPoolMinSize(int checkThreadPoolMinSize)
+        {
+            m_checkThreadPoolMinSize = checkThreadPoolMinSize;
+        }
 
-	int getCheckThreadPoolMaxSize()
-	{
-		return m_checkThreadPoolMaxSize;
-	}
+        int getCheckThreadPoolMaxSize()
+        {
+            return m_checkThreadPoolMaxSize;
+        }
 
-	void setCheckThreadPoolMaxSize(int checkThreadPoolMaxSize)
-	{
-		m_checkThreadPoolMaxSize = checkThreadPoolMaxSize;
-	}
+        void setCheckThreadPoolMaxSize(int checkThreadPoolMaxSize)
+        {
+            m_checkThreadPoolMaxSize = checkThreadPoolMaxSize;
+        }
 
-	int getCheckRequestHoldMax()
-	{
-		return m_checkRequestHoldMax;
-	}
+        int getCheckRequestHoldMax()
+        {
+            return m_checkRequestHoldMax;
+        }
 
-	void setCheckRequestHoldMax(int checkRequestHoldMax)
-	{
-		m_checkRequestHoldMax = checkRequestHoldMax;
-	}
+        void setCheckRequestHoldMax(int checkRequestHoldMax)
+        {
+            m_checkRequestHoldMax = checkRequestHoldMax;
+        }
 
-private:
-	TransactionCheckListener* m_pTransactionCheckListener;
-	int m_checkThreadPoolMinSize;///< 事务回查最小并发数
-	int m_checkThreadPoolMaxSize;///< 事务回查最大并发数
-	int m_checkRequestHoldMax;///< 事务回查队列数
-};
+    private:
+        TransactionCheckListener* m_pTransactionCheckListener;
+        int m_checkThreadPoolMinSize;
+        int m_checkThreadPoolMaxSize;
+        int m_checkRequestHoldMax;
+    };
+}
 
 #endif

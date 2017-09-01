@@ -13,50 +13,64 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 */
-#if!defined __SUBSCRIPTIONDATA_H__
+#ifndef __SUBSCRIPTIONDATA_H__
 #define __SUBSCRIPTIONDATA_H__
 
 #include <string>
 #include <set>
 
-class SubscriptionData
+#include "RocketMQClient.h"
+#include "RemotingSerializable.h"
+#include "RefHandle.h"
+#include "json/json.h"
+
+namespace rmq
 {
-public:
-	SubscriptionData();
-	SubscriptionData(const std::string& topic, const std::string& subString);
+    class SubscriptionData : public kpr::RefCount
+    {
+    public:
+        SubscriptionData();
+        SubscriptionData(const std::string& topic, const std::string& subString);
 
-	std::string getTopic()const;
-	void setTopic(const std::string& topic);
+        std::string getTopic()const;
+        void setTopic(const std::string& topic);
 
-	std::string getSubString();
-	void setSubString(const std::string& subString);
+        std::string getSubString();
+        void setSubString(const std::string& subString);
 
-	std::set<std::string>& getTagsSet();
-	void setTagsSet(const std::set<std::string>& tagsSet);
+        std::set<std::string>& getTagsSet();
+        void setTagsSet(const std::set<std::string>& tagsSet);
 
-	long long getSubVersion();
-	void setSubVersion(long long subVersion);
+        long long getSubVersion();
+        void setSubVersion(long long subVersion);
 
-	std::set<int>& getCodeSet();
-	void setCodeSet(const std::set<int>& codeSet);
+        std::set<int>& getCodeSet();
+        void setCodeSet(const std::set<int>& codeSet);
 
-	int hashCode();
+        int hashCode();
+        void toJson(Json::Value& obj) const;
+		std::string toString() const;
 
-	void encode(std::string& outData);
+        bool operator==(const SubscriptionData& other);
+        bool operator<(const SubscriptionData& other)const;
 
-	bool operator==(const SubscriptionData& other);
-	bool operator<(const SubscriptionData& other)const;
+    public:
+        static std::string SUB_ALL;
 
+    private:
+        std::string m_topic;
+        std::string m_subString;
+        std::set<std::string> m_tagsSet;
+        std::set<int> m_codeSet;
+        long long m_subVersion ;
+    };
+	typedef kpr::RefHandleT<SubscriptionData> SubscriptionDataPtr;
 
-public:
-	static std::string SUB_ALL;
-
-private:
-	std::string m_topic;
-	std::string m_subString;
-	std::set<std::string> m_tagsSet;
-	std::set<int> m_codeSet;
-	long long m_subVersion ;
-};
+	inline std::ostream& operator<<(std::ostream& os, const SubscriptionData& obj)
+	{
+	    os << obj.toString();
+	    return os;
+	}
+}
 
 #endif

@@ -16,31 +16,55 @@
 
 #include "ConsumeType.h"
 
+namespace rmq
+{
+
 const char* getConsumeTypeString(ConsumeType type)
 {
-	switch(type)
-	{
-	case CONSUME_ACTIVELY:return "CONSUME_ACTIVELY";
-	case CONSUME_PASSIVELY:return "CONSUME_PASSIVELY";
-	}
+    switch (type)
+    {
+        case CONSUME_ACTIVELY:
+            return "CONSUME_ACTIVELY";
+        case CONSUME_PASSIVELY:
+            return "CONSUME_PASSIVELY";
+    }
+
+    return "UnknowConsumeType";
 }
 
 const char* getConsumeFromWhereString(ConsumeFromWhere type)
 {
-	switch(type)
-	{
-	case CONSUME_FROM_LAST_OFFSET:return "CONSUME_FROM_LAST_OFFSET";
-	case CONSUME_FROM_LAST_OFFSET_AND_FROM_MIN_WHEN_BOOT_FIRST:return "CONSUME_FROM_LAST_OFFSET_AND_FROM_MIN_WHEN_BOOT_FIRST";
-	case  CONSUME_FROM_MAX_OFFSET:return "CONSUME_FROM_MAX_OFFSET";
-	case CONSUME_FROM_MIN_OFFSET:return "CONSUME_FROM_MIN_OFFSET";
-	}
+    switch (type)
+    {
+        case CONSUME_FROM_LAST_OFFSET:
+            return "CONSUME_FROM_LAST_OFFSET";
+        case CONSUME_FROM_LAST_OFFSET_AND_FROM_MIN_WHEN_BOOT_FIRST:
+            return "CONSUME_FROM_LAST_OFFSET_AND_FROM_MIN_WHEN_BOOT_FIRST";
+        case CONSUME_FROM_MAX_OFFSET:
+            return "CONSUME_FROM_MAX_OFFSET";
+        case CONSUME_FROM_MIN_OFFSET:
+            return "CONSUME_FROM_MIN_OFFSET";
+        case CONSUME_FROM_FIRST_OFFSET:
+            return "CONSUME_FROM_FIRST_OFFSET";
+        case CONSUME_FROM_TIMESTAMP:
+            return "CONSUME_FROM_TIMESTAMP";
+    }
+
+    return "UnknowConsumeFromWhere";
 }
 
 const char* getMessageModelString(MessageModel type)
 {
-	switch(type)
-	{
-	case CLUSTERING:return "CLUSTERING";
-	case BROADCASTING:return "BROADCASTING";
-	}
+    switch (type)
+    {
+        case CLUSTERING:
+            return "CLUSTERING";
+        case BROADCASTING:
+            return "BROADCASTING";
+    }
+
+    return "UnknowMessageModel";
 }
+
+}
+

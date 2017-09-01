@@ -13,215 +13,267 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 */
-#if!defined __TOPICROUTEDATA_H__
+#ifndef __TOPICROUTEDATA_H__
 #define __TOPICROUTEDATA_H__
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <iostream>
 #include <list>
 #include <map>
 #include <string>
-
+#include <sstream>
+#include "RocketMQClient.h"
+#include "RemotingSerializable.h"
+#include "UtilAll.h"
 #include "MixAll.h"
 #include "json/json.h"
 
-struct QueueData
+namespace rmq
 {
-	std::string brokerName;
-	int readQueueNums;
-	int writeQueueNums;
-	int perm;
+    struct QueueData
+    {
+        std::string brokerName;
+        int readQueueNums;
+        int writeQueueNums;
+        int perm;
 
-	bool operator < (const QueueData& other)
-	{
-		return brokerName < other.brokerName;
-	}
+        bool operator < (const QueueData& other)
+        {
+            return brokerName < other.brokerName;
+        }
 
-	bool operator==(const QueueData& other)const
-	{
-		if (brokerName == other.brokerName
-			&&readQueueNums == other.readQueueNums
-			&&writeQueueNums == other.writeQueueNums
-			&&perm == other.perm)
-		{
-			return true;
-		}
-		
-		return false;
-	}
-};
+        bool operator==(const QueueData& other)const
+        {
+            if (brokerName == other.brokerName
+                && readQueueNums == other.readQueueNums
+                && writeQueueNums == other.writeQueueNums
+                && perm == other.perm)
+            {
+                return true;
+            }
 
-struct BrokerData
-{
-	std::string brokerName;
-	std::map<int, std::string> brokerAddrs;
+            return false;
+        }
 
-	bool operator < (const BrokerData& other)
-	{
-		return brokerName < other.brokerName;
-	}
+        std::string toString() const
+        {
+            std::stringstream ss;
+            ss << "{brokerName=" << brokerName
+               << ",readQueueNums=" << readQueueNums
+               << ",writeQueueNums=" << writeQueueNums
+               << ",perm=" << perm
+               << "}";
+            return ss.str();
+        }
+    };
+    inline std::ostream& operator<<(std::ostream& os, const QueueData& obj)
+    {
+        os << obj.toString();
+        return os;
+    }
 
-	bool operator == (const BrokerData& other)const
-	{
-		if (brokerName == other.brokerName
-			&&brokerAddrs == other.brokerAddrs)
-		{
-			return true;
-		}
 
-		return false;
-	}
-};
+    struct BrokerData
+    {
+        std::string brokerName;
+        std::map<int, std::string> brokerAddrs;
 
-/**
-* Topic路由数据，从Name Server获取
-*
-*/
-class TopicRouteData
-{
-public:
-	void Encode(std::string& outData)
-	{
+        bool operator < (const BrokerData& other)
+        {
+            return brokerName < other.brokerName;
+        }
 
-	}
+        bool operator == (const BrokerData& other)const
+        {
+            if (brokerName == other.brokerName
+                && brokerAddrs == other.brokerAddrs)
+            {
+                return true;
+            }
 
-	static TopicRouteData* Decode(const char* pData, int len)
-	{
-		//orderTopicConf;
-		//queueDatas:
-		//    [
-		//        {brokerName:"",readQueueNums:1,writeQueueNums:1,perm:0},
-		//        {...}
-		//    ]
-		//     
-		//brokerDatas:
-		//    [
-		//        {brokerName:"",brokerAddrs:{"":"","":""}}
-		//    ]
-		//
-		//
+            return false;
+        }
 
-		Json::Reader reader;
-		Json::Value object;
-		if (!reader.parse(pData, object))
-		{
-			return NULL;
-		}
+        std::string toString() const
+        {
+            std::stringstream ss;
+            ss << "{brokerName=" << brokerName
+               << ",brokerAddrs=" << UtilAll::toString(brokerAddrs)
+               << "}";
+            return ss.str();
+        }
+    };
 
-		TopicRouteData * trd = new TopicRouteData();
-		trd->setOrderTopicConf(object["orderTopicConf"].asString());
 
-		Json::Value qds = object["queueDatas"];
-		for (size_t i=0;i<qds.size();i++)
-		{
-			QueueData d;
-			Json::Value qd = qds[i];
-			d.brokerName = qd["brokerName"].asString();
-			d.readQueueNums = qd["readQueueNums"].asInt();
-			d.writeQueueNums = qd["writeQueueNums"].asInt();
-			d.perm = qd["perm"].asInt();
+    inline std::ostream& operator<<(std::ostream& os, const BrokerData& obj)
+    {
+        os << obj.toString();
+        return os;
+    }
 
-			trd->getQueueDatas().push_back(d);
-		}
 
-		Json::Value bds = object["brokerDatas"];
-		for (size_t i=0;i<bds.size();i++)
-		{
-			BrokerData d;
-			Json::Value bd = bds[i];
-			d.brokerName = bd["brokerName"].asString();
+    class TopicRouteData : public RemotingSerializable
+    {
+    public:
+        void encode(std::string& outData)
+        {
 
-			Json::Value bas=bd["brokerAddrs"];
-			Json::Value::Members mbs = bas.getMemberNames();
-			for (size_t i=0;i<mbs.size();i++)
-			{
-				std::string key = mbs.at(i);
-				d.brokerAddrs[atoi(key.c_str())]=bas[key].asString();
-			}
+        }
 
-			trd->getBrokerDatas().push_back(d);
-		}
+        static TopicRouteData* encode(const char* pData, int len)
+        {
+            /*
+            {
+                "orderTopicConf":"",
+                "brokerDatas":[
+                    {"brokerAddrs":{0:"10.134.143.77:10911"},"brokerName":"broker-a"}
+                ],
+                "filterServerTable":{},
+                "queueDatas":[
+                    {"brokerName":"broker-a","perm":6,"readQueueNums":4,"topicSynFlag":0,"writeQueueNums":4}
+                ]
+            }
+            */
+            Json::Reader reader;
+            Json::Value object;
 
-		return trd;
-	}
+            if (!reader.parse(pData, pData + len, object))
+            {
+                RMQ_ERROR("parse fail:%s", reader.getFormattedErrorMessages().c_str());
+                return NULL;
+            }
 
-	/**
-	* 优先获取Master，如果没有Master尝试找Slave
-	*/
-	static std::string selectBrokerAddr(BrokerData& data)
-	{
-		std::map<int, std::string>::iterator it = data.brokerAddrs.find(MixAll::MASTER_ID);
-		std::string value = "";
-		if (it == data.brokerAddrs.end())
-		{
-			it = data.brokerAddrs.begin();
-			if (it != data.brokerAddrs.end())
-			{
-				value = it->second;
-			}
-		}
-		else
-		{
-			value = it->second;
-		}
+            TopicRouteData* trd = new TopicRouteData();
+            trd->setOrderTopicConf(object["orderTopicConf"].asString());
 
-		return value;
-	}
+            Json::Value qds = object["queueDatas"];
+            for (size_t i = 0; i < qds.size(); i++)
+            {
+                QueueData d;
+                Json::Value qd = qds[i];
+                d.brokerName = qd["brokerName"].asString();
+                d.readQueueNums = qd["readQueueNums"].asInt();
+                d.writeQueueNums = qd["writeQueueNums"].asInt();
+                d.perm = qd["perm"].asInt();
 
-	std::list<QueueData>& getQueueDatas()
-	{
-		return m_queueDatas;
-	}
+                trd->getQueueDatas().push_back(d);
+            }
 
-	void setQueueDatas(const std::list<QueueData>& queueDatas)
-	{
-		m_queueDatas = queueDatas;
-	}
+            Json::Value bds = object["brokerDatas"];
+            for (size_t i = 0; i < bds.size(); i++)
+            {
+                BrokerData d;
+                Json::Value bd = bds[i];
+                d.brokerName = bd["brokerName"].asString();
 
-	std::list<BrokerData>& getBrokerDatas()
-	{
-		return m_brokerDatas;
-	}
+                Json::Value bas = bd["brokerAddrs"];
+                Json::Value::Members mbs = bas.getMemberNames();
+                for (size_t i = 0; i < mbs.size(); i++)
+                {
+                    std::string key = mbs.at(i);
+                    d.brokerAddrs[atoi(key.c_str())] = bas[key].asString();
+                }
 
-	void setBrokerDatas(const std::list<BrokerData>& brokerDatas)
-	{
-		m_brokerDatas = brokerDatas;
-	}
+                trd->getBrokerDatas().push_back(d);
+            }
 
-	const std::string& getOrderTopicConf()
-	{
-		return m_orderTopicConf;
-	}
+            return trd;
+        }
 
-	void setOrderTopicConf(const std::string& orderTopicConf)
-	{
-		m_orderTopicConf = orderTopicConf;
-	}
+        static std::string selectBrokerAddr(BrokerData& data)
+        {
+            std::map<int, std::string>::iterator it = data.brokerAddrs.find(MixAll::MASTER_ID);
+            std::string value = "";
+            if (it == data.brokerAddrs.end())
+            {
+                it = data.brokerAddrs.begin();
+                if (it != data.brokerAddrs.end())
+                {
+                    value = it->second;
+                }
+            }
+            else
+            {
+                value = it->second;
+            }
 
-	bool operator ==(const TopicRouteData& other)
-	{
-		if (m_brokerDatas != other.m_brokerDatas)
-		{
-			return false;
-		}
+            return value;
+        }
 
-		if (m_orderTopicConf != other.m_orderTopicConf)
-		{
-			return false;
-		}
+        std::list<QueueData>& getQueueDatas()
+        {
+            return m_queueDatas;
+        }
 
-		if (m_queueDatas != other.m_queueDatas)
-		{
-			return false;
-		}
+        void setQueueDatas(const std::list<QueueData>& queueDatas)
+        {
+            m_queueDatas = queueDatas;
+        }
 
-		return true;
-	}
+        std::list<BrokerData>& getBrokerDatas()
+        {
+            return m_brokerDatas;
+        }
 
-private:
-	std::string m_orderTopicConf;
-	std::list<QueueData> m_queueDatas;
-	std::list<BrokerData> m_brokerDatas;
-};
+        void setBrokerDatas(const std::list<BrokerData>& brokerDatas)
+        {
+            m_brokerDatas = brokerDatas;
+        }
+
+        const std::string& getOrderTopicConf()
+        {
+            return m_orderTopicConf;
+        }
+
+        void setOrderTopicConf(const std::string& orderTopicConf)
+        {
+            m_orderTopicConf = orderTopicConf;
+        }
+
+        bool operator ==(const TopicRouteData& other)
+        {
+            if (m_brokerDatas != other.m_brokerDatas)
+            {
+                return false;
+            }
+
+            if (m_orderTopicConf != other.m_orderTopicConf)
+            {
+                return false;
+            }
+
+            if (m_queueDatas != other.m_queueDatas)
+            {
+                return false;
+            }
+
+            return true;
+        }
+
+        std::string toString() const
+        {
+            std::stringstream ss;
+            ss << "{orderTopicConf=" << m_orderTopicConf
+               << ",queueDatas=" << UtilAll::toString(m_queueDatas)
+               << ",brokerDatas=" << UtilAll::toString(m_brokerDatas)
+               << "}";
+            return ss.str();
+        }
+
+    private:
+        std::string m_orderTopicConf;
+        std::list<QueueData> m_queueDatas;
+        std::list<BrokerData> m_brokerDatas;
+    };
+	typedef kpr::RefHandleT<TopicRouteData> TopicRouteDataPtr;
+
+    inline std::ostream& operator<<(std::ostream& os, const TopicRouteData& obj)
+    {
+        os << obj.toString();
+        return os;
+    }
+
+}
 
 #endif

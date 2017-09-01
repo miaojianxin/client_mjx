@@ -14,34 +14,45 @@
 * limitations under the License.
 */
 
-#if!defined __KVTABLE_H__
+#ifndef __KVTABLE_H__
 #define __KVTABLE_H__
 
 #include <map>
 #include <string>
-
 #include "RemotingSerializable.h"
+#include "UtilAll.h"
 
-class KVTable : public RemotingSerializable
+namespace rmq
 {
-public:
-	void Encode(std::string& outData)
-	{
+    class KVTable : public RemotingSerializable
+    {
+    public:
+        void encode(std::string& outData)
+        {
 
-	}
+        }
 
-	const std::map<std::string, std::string>& getTable()
-	{
-		return m_table;
-	}
-	
-	void setTable(const std::map<std::string, std::string>& table)
-	{
-		m_table = table;
-	}
+		std::string toString() const
+		{
+			std::stringstream ss;
+			ss << "{table=" << UtilAll::toString(m_table)
+			   << "}";
+			return ss.str();
+		}
 
-private:
-	std::map<std::string, std::string> m_table ;
-};
+        const std::map<std::string, std::string>& getTable()
+        {
+            return m_table;
+        }
+
+        void setTable(const std::map<std::string, std::string>& table)
+        {
+            m_table = table;
+        }
+
+    private:
+        std::map<std::string, std::string> m_table ;
+    };
+}
 
 #endif

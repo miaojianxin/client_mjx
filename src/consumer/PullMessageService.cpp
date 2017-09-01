@@ -22,12 +22,44 @@
 #include "DefaultMQPushConsumerImpl.h"
 #include "ScopedLock.h"
 
+namespace rmq
+{
+
+class SubmitPullRequestLater : public kpr::TimerHandler
+{
+public:
+    SubmitPullRequestLater(PullMessageService* pService, PullRequest* pPullRequest)
+        : m_pService(pService), m_pPullRequest(pPullRequest)
+    {
+
+    }
+
+    void OnTimeOut(unsigned int timerID)
+    {
+    	try
+    	{
+        	m_pService->executePullRequestImmediately(m_pPullRequest);
+        }
+        catch(...)
+        {
+        	RMQ_ERROR("SubmitPullRequestLater OnTimeOut exception");
+        }
+
+        delete this;
+    }
+
+private:
+    PullMessageService* m_pService;
+    PullRequest* m_pPullRequest;
+};
+
 
 PullMessageService::PullMessageService(MQClientFactory* pMQClientFactory)
-	:ServiceThread("PullMessageService"),
-	 m_pMQClientFactory(pMQClientFactory)
+    : ServiceThread("PullMessageService"),
+      m_pMQClientFactory(pMQClientFactory)
 {
-	m_TimeThread = new kpr::TimerThread("PullMessageService-timer",1000);
+    m_TimerThread = new kpr::TimerThread("PullMessageService-timer", 10);
+    m_TimerThread->Start();
 }
 
 
@@ -36,98 +68,104 @@ PullMessageService::~PullMessageService()
 
 }
 
-/**
-* 只定时一次
-*/
+
 void PullMessageService::executePullRequestLater(PullRequest* pPullRequest, long timeDelay)
 {
-	MyTimeHandler* handler = new MyTimeHandler(this,pPullRequest);
-	
-	m_TimeThread->RegisterTimer(0,timeDelay,handler,false);
+    SubmitPullRequestLater* pHandler = new SubmitPullRequestLater(this, pPullRequest);
+    m_TimerThread->RegisterTimer(0, timeDelay, pHandler, false);
 }
 
 
-/**
-* 立刻执行PullRequest
-*/
+void PullMessageService::executeTaskLater(kpr::TimerHandler* pHandler, long timeDelay)
+{
+    m_TimerThread->RegisterTimer(0, timeDelay, pHandler, false);
+}
+
+
 void PullMessageService::executePullRequestImmediately(PullRequest* pPullRequest)
 {
-	try
-	{
-		{
-			kpr::ScopedLock<kpr::Mutex> lock(m_lock);
-			m_pullRequestQueue.push_back(pPullRequest);
-		}
+    try
+    {
+        {
+            kpr::ScopedLock<kpr::Mutex> lock(m_lock);
+            m_pullRequestQueue.push_back(pPullRequest);
+        }
 
-		wakeup();
-	}
-	catch (...)
-	{
-	}
+        wakeup();
+    }
+    catch (...)
+    {
+    	RMQ_ERROR("executePullRequestImmediately pullRequestQueue.push");
+    }
 }
 
 void PullMessageService::Run()
 {
-	while (!m_stoped)
-	{
-		try
-		{
-			bool wait = false;
+	RMQ_INFO("%s service started", getServiceName().c_str());
 
-			{
-				kpr::ScopedLock<kpr::Mutex> lock(m_lock);
-				if (m_pullRequestQueue.empty())
-				{
-					wait = true;
-				}
-			}
-			
-			if (wait)
-			{
-				waitForRunning(5000);
-			}
+    while (!m_stoped)
+    {
+        try
+        {
+            bool wait = false;
+            {
+                kpr::ScopedLock<kpr::Mutex> lock(m_lock);
+                if (m_pullRequestQueue.empty())
+                {
+                    wait = true;
+                }
+            }
 
-			PullRequest* pullRequest=NULL;
-			{
-				kpr::ScopedLock<kpr::Mutex> lock(m_lock);
-				if (!m_pullRequestQueue.empty())
-				{
-					pullRequest = m_pullRequestQueue.front();
-					m_pullRequestQueue.pop_front();
-				}
-			}
+            if (wait)
+            {
+                waitForRunning(5000);
+            }
 
-			if (pullRequest != NULL)
-			{
-				pullMessage(pullRequest);
-			}
-		}
-		catch (...)
-		{
+            PullRequest* pullRequest = NULL;
+            {
+                kpr::ScopedLock<kpr::Mutex> lock(m_lock);
+                if (!m_pullRequestQueue.empty())
+                {
+                    pullRequest = m_pullRequestQueue.front();
+                    m_pullRequestQueue.pop_front();
+                }
+            }
 
-		}
-	}
+            if (pullRequest != NULL)
+            {
+                pullMessage(pullRequest);
+            }
+        }
+        catch (...)
+        {
+			RMQ_ERROR("Pull Message Service Run Method exception");
+        }
+    }
 
-	m_TimeThread->Close();
-	m_TimeThread->Join();
+    m_TimerThread->Stop();
+    m_TimerThread->Join();
+
+    RMQ_INFO("%s service end", getServiceName().c_str());
 }
 
 std::string PullMessageService::getServiceName()
 {
-	return "PullMessageService";
+    return "PullMessageService";
 }
 
 
 void PullMessageService::pullMessage(PullRequest* pPullRequest)
 {
-	MQConsumerInner* consumer = m_pMQClientFactory->selectConsumer(pPullRequest->getConsumerGroup());
-	if (consumer != NULL)
-	{
-		DefaultMQPushConsumerImpl* impl = (DefaultMQPushConsumerImpl*) consumer;
-		impl->pullMessage(pPullRequest);
-	}
-	else
-	{
-		Logger::get_logger()->error("Unable to find consumer instance from MQClientFactory");
-	}
+    MQConsumerInner* consumer = m_pMQClientFactory->selectConsumer(pPullRequest->getConsumerGroup());
+    if (consumer != NULL)
+    {
+        DefaultMQPushConsumerImpl* impl = (DefaultMQPushConsumerImpl*) consumer;
+        impl->pullMessage(pPullRequest);
+    }
+    else
+    {
+        RMQ_WARN("No matched consumer for the PullRequest {%s}, drop it", pPullRequest->toString().c_str());
+    }
+}
+
 }

@@ -14,26 +14,25 @@
 * limitations under the License.
 */
 
-#if!defined __PULLSYSFLAG_H__
+#ifndef __PULLSYSFLAG_H__
 #define __PULLSYSFLAG_H__
 
-/**
-* Pull接口用到的flag定义
-* 
-*/
-class PullSysFlag 
+namespace rmq
 {
-public:
-	static int buildSysFlag(bool commitOffset, bool suspend, bool subscription);
-	static int clearCommitOffsetFlag(int sysFlag);
-	static bool hasCommitOffsetFlag(int sysFlag);
-	static bool hasSuspendFlag(int sysFlag);
-	static bool hasSubscriptionFlag(int sysFlag);
+	class PullSysFlag
+	{
+	public:
+	    static int buildSysFlag(bool commitOffset, bool suspend, bool subscription);
+	    static int clearCommitOffsetFlag(int sysFlag);
+	    static bool hasCommitOffsetFlag(int sysFlag);
+	    static bool hasSuspendFlag(int sysFlag);
+	    static bool hasSubscriptionFlag(int sysFlag);
 
-private:
-	static int FLAG_COMMIT_OFFSET;
-	static int FLAG_SUSPEND;
-	static int FLAG_SUBSCRIPTION;
-};
+	private:
+	    static int FLAG_COMMIT_OFFSET;
+	    static int FLAG_SUSPEND;
+	    static int FLAG_SUBSCRIPTION;
+	};
+}
 
 #endif

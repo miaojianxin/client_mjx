@@ -26,281 +26,133 @@
 
 namespace kpr
 {
-#if defined(WIN32)
+class ConditionHelper
+{
+    RecursiveMutex& m_mutex;
+    int m_count;
 
-	class CondImpl
-	{
-	public:
-		CondImpl()
-			: m_gate(1),
-			  m_blocked(0),
-			  m_unblocked(0),
-			  m_toUnblock(0)
-		{
-		}
+public:
 
-		void Notify(bool broadcast)
-		{
-			m_gate.Wait();
-			m_internal.Lock();
+    ConditionHelper(RecursiveMutex& mutex, int count)
+        : m_mutex(mutex),
+          m_count(count)
+    {
+    }
 
-			if (m_unblocked != 0)
-			{
-				m_blocked -= m_unblocked;
-				m_unblocked = 0;
-			}
-
-			if (m_blocked > 0)
-			{
-				m_toUnblock = (broadcast) ? m_blocked : 1;
-				m_internal.Unlock();
-				m_queue.Release();
-			}
-			else
-			{
-				m_gate.Release();
-				m_internal.Unlock();
-			}
-		}
-
-		void PreWait()
-		{
-			m_gate.Wait();
-			++m_blocked;
-			m_gate.Release();
-		}
-
-		bool Wait(long timeout)
-		{
-			try
-			{
-				bool rc = m_queue.Wait(timeout);
-				postwait(!rc);
-				return rc;
-			}
-			catch(...)
-			{
-				postwait(false);
-				throw;
-			}
-		}
-
-	private:
-		void postwait(bool timeout)
-		{
-			m_internal.Lock();
-			++m_unblocked;
-
-			if (m_toUnblock != 0)
-			{
-				bool last = (--m_toUnblock == 0);
-				m_internal.Unlock();
-
-				if (last)
-				{
-					m_gate.Release();
-				}
-				else
-				{
-					m_queue.Release();
-				}
-			}
-			else
-			{
-				m_internal.Unlock();
-			}
-		}
-
-		Semaphore m_gate;
-		Semaphore m_queue;
-		Mutex m_internal;
-
-		long m_blocked;
-		long m_unblocked;
-		long m_toUnblock;
-	};
-#else
-	class ConditionHelper
-	{
-		RecursiveMutex& m_mutex;
-		int m_count;
-
-	public:
-
-		ConditionHelper(RecursiveMutex& mutex, int count)
-			: m_mutex(mutex),
-			m_count(count)
-		{
-		}
-
-		~ConditionHelper()
-		{
-			pthread_mutex_unlock(&m_mutex.m_mutex);
-			m_mutex.lock(m_count);
-		}
-	};
-#endif
+    ~ConditionHelper()
+    {
+        pthread_mutex_unlock(&m_mutex.m_mutex);
+        m_mutex.lock(m_count);
+    }
+};
 
 
-	Condition::Condition()
-	{
-#ifdef WIN32
-		m_impl = new CondImpl;
-#else
-		pthread_cond_init(&m_cond, 0);
-#endif
-	}
+Condition::Condition()
+{
+    pthread_cond_init(&m_cond, 0);
+}
 
-	Condition::~Condition()
-	{
-#if defined(WIN32)
-		delete m_impl;
-#else
-		pthread_cond_destroy(&m_cond);
-#endif
-	}
-	
-	void Condition::Wait(Mutex& mutex)
-	{
-		wait(mutex, -1);
-	}
+Condition::~Condition()
+{
+    pthread_cond_destroy(&m_cond);
+}
 
-	bool Condition::Wait(Mutex& mutex, long timeout)
-	{
-		assert(timeout>=0&&"timeout value is negative");
+void Condition::Wait(Mutex& mutex)
+{
+    wait(mutex, -1);
+}
 
-		return wait(mutex, timeout);
-	}
+bool Condition::Wait(Mutex& mutex, long timeout)
+{
+    assert(timeout >= 0 && "timeout value is negative");
 
-	void Condition::Wait( RecursiveMutex& mutex )
-	{
-		wait(mutex, -1);
-	}
+    return wait(mutex, timeout);
+}
 
-	bool Condition::Wait( RecursiveMutex& mutex, long timeout )
-	{
-		assert(timeout>=0&&"timeout value is negative");
+void Condition::Wait(RecursiveMutex& mutex)
+{
+    wait(mutex, -1);
+}
 
-		return wait(mutex, timeout);
-	}
+bool Condition::Wait(RecursiveMutex& mutex, long timeout)
+{
+    assert(timeout >= 0 && "timeout value is negative");
 
-	void Condition::Notify()
-	{
-#ifdef WIN32
-		m_impl -> Notify(false);
-#else
-		pthread_cond_signal(&m_cond);
-#endif
-	}
+    return wait(mutex, timeout);
+}
 
-	void Condition::NotifyAll()
-	{
-#if defined(WIN32)
-		m_impl -> Notify(true);
-#else
-		pthread_cond_broadcast(&m_cond);
-#endif
-	}
+void Condition::Notify()
+{
+    pthread_cond_signal(&m_cond);
+}
 
-	bool Condition::wait(Mutex& mutex, long timeout)
-	{
-#if defined(WIN32)
+void Condition::NotifyAll()
+{
+    pthread_cond_broadcast(&m_cond);
+}
 
-		m_impl -> PreWait();
-		mutex.Unlock();
+bool Condition::wait(Mutex& mutex, long timeout)
+{
+    int ret = 0;
+    if (timeout < 0)
+    {
+        ret = pthread_cond_wait(&m_cond, &mutex.m_mutex);
+    }
+    else
+    {
+        struct timespec abstime = KPRUtil::CalcAbsTime(timeout);
+        ret = pthread_cond_timedwait(&m_cond, &mutex.m_mutex, &abstime);
+    }
+    if (ret == 0)
+    {
+        return true;
+    }
+    else
+    {
+        if (errno == EINTR)
+        {
+            THROW_EXCEPTION(InterruptedException, "pthread_cond_timedwait failed", errno);
+        }
+        else if (errno == ETIMEDOUT && timeout >= 0)
+        {
+            return false;
+        }
+    }
+    return true;
+}
 
-		try
-		{
-			bool rc = m_impl -> Wait(timeout);
-			mutex.Lock();
-			return rc;
-		}
-		catch(...)
-		{
-			mutex.Lock();
-			throw;
-		}
-#else
+bool Condition::wait(RecursiveMutex& mutex, long timeout)
+{
+    unsigned int count = mutex.reset4Condvar();
+    ConditionHelper unlock(mutex, count);
 
-		int ret = 0;
-		if (timeout < 0)
-		{
-			ret = pthread_cond_wait(&m_cond, &mutex.m_mutex);
-		}
-		else
-		{
-			struct timespec abstime = CalcAbsTime(timeout);
-			ret = pthread_cond_timedwait(&m_cond, &mutex.m_mutex, &abstime);
-		}
-		if (ret==0)
-		{
-			return true;
-		}
-		else
-		{
-			if (errno==EINTR)
-			{
-				THROW_EXCEPTION(InterruptedException,"pthread_cond_timedwait failed",errno);
-			}
-			else if (errno==ETIMEDOUT && timeout >= 0)
-			{
-				return false;
-			}
-		}
-		return true;
-#endif
-	}
+    int ret = 0;
+    if (timeout < 0)
+    {
+        ret = pthread_cond_wait(&m_cond, &mutex.m_mutex);
+    }
+    else
+    {
+        struct timespec abstime = KPRUtil::CalcAbsTime(timeout);
+        ret = pthread_cond_timedwait(&m_cond, &mutex.m_mutex, &abstime);
+    }
 
-	bool Condition::wait( RecursiveMutex& mutex, long timeout )
-	{
-#if defined(WIN32)
+    if (ret == 0)
+    {
+        return true;
+    }
+    else
+    {
+        if (errno == EINTR)
+        {
+            THROW_EXCEPTION(InterruptedException, "pthread_cond_timedwait failed", errno);
+        }
+        else if (errno == ETIMEDOUT && timeout >= 0)
+        {
+            return false;
+        }
+    }
 
-		m_impl -> PreWait();
-		mutex.Unlock();
-
-		try
-		{
-			bool rc = m_impl -> Wait(timeout);
-			mutex.Lock();
-			return rc;
-		}
-		catch(...)
-		{
-			mutex.Lock();
-			throw;
-		}
-#else
-		unsigned int count = mutex.reset4Condvar();
-		ConditionHelper unlock(mutex, count);
-
-		int ret = 0;
-		if (timeout < 0)
-		{
-			ret = pthread_cond_wait(&m_cond, &mutex.m_mutex);
-		}
-		else
-		{
-			struct timespec abstime = CalcAbsTime(timeout);
-			ret = pthread_cond_timedwait(&m_cond, &mutex.m_mutex, &abstime);
-		}
-
-		if (ret==0)
-		{
-			return true;
-		}
-		else
-		{
-			if (errno==EINTR)
-			{
-				THROW_EXCEPTION(InterruptedException,"pthread_cond_timedwait failed",errno);
-			}
-			else if (errno==ETIMEDOUT && timeout >= 0)
-			{
-				return false;
-			}
-		}
-
-		return true;
-#endif
-	}
+    return true;
+}
 }

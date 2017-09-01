@@ -14,39 +14,54 @@
  * limitations under the License.
  */
 
-#if!defined __REMOTECLIENTCONFIG_H__
+#ifndef __REMOTECLIENTCONFIG_H__
 #define __REMOTECLIENTCONFIG_H__
 
-/**
- * remote客户端配置类
- *
- */
-class RemoteClientConfig
+#include <unistd.h>
+#include <sys/sysinfo.h>
+
+namespace rmq
 {
-public:
-	RemoteClientConfig()
-	{
-		clientWorkerThreads = 4;
-		clientCallbackExecutorThreads = 4;//cpu个数
-		clientSelectorThreads = 1;
-		clientOnewaySemaphoreValue = 256;
-		clientAsyncSemaphoreValue = 128;
-		connectTimeoutMillis = 3000;
+    /**
+     * remote client config
+     *
+     */
+    class RemoteClientConfig
+    {
+    public:
+        RemoteClientConfig()
+        {
+            clientWorkerThreads = 4;
+            clientCallbackExecutorThreads = get_nprocs();
+            clientSelectorThreads = 1;
+            clientOnewaySemaphoreValue = 2048;
+            clientAsyncSemaphoreValue = 2048;
+            connectTimeoutMillis = 3000;
+            channelNotActiveInterval = 1000 * 60;
+            clientChannelMaxIdleTimeSeconds = 120;
+			clientSocketSndBufSize = 65535;
+			clientSocketRcvBufSize = 65535;
 
-		channelNotActiveInterval = 1000 * 60;// channel超过1分钟不被访问 就关闭
-		clientChannelMaxIdleTimeSeconds = 120;
-	}
+			nsL5ModId = 0;
+			nsL5CmdId = 0;
+        }
 
-	// 处理Server Response/Request
-	int clientWorkerThreads;
-	int clientCallbackExecutorThreads;//cpu个数
-	int clientSelectorThreads;
-	int clientOnewaySemaphoreValue;
-	int clientAsyncSemaphoreValue;
-	int connectTimeoutMillis;
+        // Server Response/Request
+        int clientWorkerThreads;
+        int clientCallbackExecutorThreads;
+        int clientSelectorThreads;
+        int clientOnewaySemaphoreValue;
+        int clientAsyncSemaphoreValue;
+        int connectTimeoutMillis;
 
-	int channelNotActiveInterval;// channel超过1分钟不被访问 就关闭
-	int clientChannelMaxIdleTimeSeconds;
-};
+        int channelNotActiveInterval;
+        int clientChannelMaxIdleTimeSeconds;
+		int clientSocketSndBufSize;
+		int clientSocketRcvBufSize;
+
+		int nsL5ModId;
+		int nsL5CmdId;
+    };
+}
 
 #endif

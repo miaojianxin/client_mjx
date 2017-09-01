@@ -14,32 +14,31 @@
 * limitations under the License.
 */
 
-#if!defined __MQPRODUCERINNER_H__
+#ifndef __MQPRODUCERINNER_H__
 #define __MQPRODUCERINNER_H__
 
 #include <string>
 #include <set>
 
-class TransactionCheckListener;
-class MessageExt;
-class CheckTransactionStateRequestHeader;
-class TopicPublishInfo;
-
-/**
-* Producer内部接口
-*
-*/
-class MQProducerInner
+namespace rmq
 {
-public:
-	virtual ~MQProducerInner() {}
-	virtual std::set<std::string> getPublishTopicList()=0;
-	virtual bool isPublishTopicNeedUpdate(const std::string& topic)=0;
-	virtual TransactionCheckListener* checkListener()=0;
-	virtual void checkTransactionState(const std::string& addr, //
-									   const MessageExt& msg, //
-									   const CheckTransactionStateRequestHeader& checkRequestHeader)=0;
-	virtual void updateTopicPublishInfo(const std::string& topic, TopicPublishInfo& info)=0;
-};
+	class TransactionCheckListener;
+	class MessageExt;
+	class CheckTransactionStateRequestHeader;
+	class TopicPublishInfo;
+
+	class MQProducerInner
+	{
+	public:
+	    virtual ~MQProducerInner() {}
+	    virtual std::set<std::string> getPublishTopicList() = 0;
+	    virtual bool isPublishTopicNeedUpdate(const std::string& topic) = 0;
+	    virtual TransactionCheckListener* checkListener() = 0;
+	    virtual void checkTransactionState(const std::string& addr, //
+	                                       const MessageExt& msg, //
+	                                       const CheckTransactionStateRequestHeader& checkRequestHeader) = 0;
+	    virtual void updateTopicPublishInfo(const std::string& topic, TopicPublishInfo& info) = 0;
+	};
+}
 
 #endif

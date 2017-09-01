@@ -13,423 +13,660 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 */
-
 #include "CommandCustomHeader.h"
-#include <sstream>
-#include <cstdlib>
 
+#include <stdlib.h>
+#include <unistd.h>
+#include <arpa/inet.h>
+#include <sstream>
+#include <string>
+#include <cstdlib>
 #include "RemotingCommand.h"
 #include "MQProtos.h"
 #include "KPRUtil.h"
+#include "UtilAll.h"
+
 #include "json/json.h"
 
-CommandCustomHeader* CommandCustomHeader::Decode(int code,char* pData,int len,bool isResponseType)
+namespace rmq
 {
-	if (isResponseType)
+
+
+CommandCustomHeader* CommandCustomHeader::decode(int code, Json::Value& data, bool isResponseType)
+{
+	CommandCustomHeader* pCustomHeader = NULL;
+
+	try
 	{
-		switch(code)
-		{
-		case SEND_MESSAGE_VALUE:
-			return SendMessageResponseHeader::Decode(pData,len);
-			break;
-		case PULL_MESSAGE_VALUE:
-			return PullMessageResponseHeader::Decode(pData,len);
-			break;
-		case QUERY_CONSUMER_OFFSET_VALUE:
-			return QueryConsumerOffsetResponseHeader::Decode(pData,len);
-		default:
-			break;
-		}
-	}
+	    if (isResponseType)
+	    {
+	        switch (code)
+	        {
+	            case SEND_MESSAGE_VALUE:
+	            case SEND_MESSAGE_V2_VALUE:
+	                pCustomHeader = SendMessageResponseHeader::decode(data);
+	                break;
+	            case PULL_MESSAGE_VALUE:
+	                pCustomHeader = PullMessageResponseHeader::decode(data);
+	                break;
+	            case QUERY_CONSUMER_OFFSET_VALUE:
+	                pCustomHeader = QueryConsumerOffsetResponseHeader::decode(data);
+	                break;
+	            case SEARCH_OFFSET_BY_TIMESTAMP_VALUE:
+	            	pCustomHeader = SearchOffsetResponseHeader::decode(data);
+	            	break;
+	           	case GET_MAX_OFFSET_VALUE:
+	            	pCustomHeader = GetMaxOffsetResponseHeader::decode(data);
+	            	break;
+	            case GET_MIN_OFFSET_VALUE:
+	            	pCustomHeader = GetMinOffsetResponseHeader::decode(data);
+	            	break;
+	            case GET_EARLIEST_MSG_STORETIME_VALUE:
+	            	pCustomHeader = GetEarliestMsgStoretimeResponseHeader::decode(data);
+	            	break;
+	            case QUERY_MESSAGE_VALUE:
+	            	pCustomHeader = QueryMessageResponseHeader::decode(data);
+	            	break;
+	            case GET_KV_CONFIG_VALUE:
+	            	pCustomHeader = GetKVConfigResponseHeader::decode(data);
+	            	break;
 
-	return NULL;
+	            default:
+	                break;
+	        }
+	    }
+	    else
+	    {
+			switch (code)
+	        {
+	            case NOTIFY_CONSUMER_IDS_CHANGED_VALUE:
+	                pCustomHeader = NotifyConsumerIdsChangedRequestHeader::decode(data);
+	                break;
+	            case GET_CONSUMER_RUNNING_INFO_VALUE:
+	            	pCustomHeader = GetConsumerRunningInfoRequestHeader::decode(data);
+	            	break;
+	            default:
+	                break;
+	        }
+	    }
+    }
+    catch(std::exception& e)
+    {
+    	if (pCustomHeader != NULL)
+    	{
+    		delete pCustomHeader;
+    		pCustomHeader = NULL;
+    	}
+    	RMQ_ERROR("CommandCustomHeader decode exception, %d, %d, %s, %s",
+    		code, isResponseType, UtilAll::toString(data).c_str(), e.what());
+    }
+    catch(...)
+    {
+    	if (pCustomHeader != NULL)
+    	{
+    		delete pCustomHeader;
+    		pCustomHeader = NULL;
+    	}
+    	RMQ_ERROR("CommandCustomHeader decode exception, %d, %d, %s",
+    		code, isResponseType, UtilAll::toString(data).c_str());
+    }
+
+    return pCustomHeader;
 }
 
-//
-//GetRouteInfoRequestHeader
-//
-GetRouteInfoRequestHeader::GetRouteInfoRequestHeader()
+
+////////////////////////////////////////////////////////////////////////////////
+//GET_ROUTEINTO_BY_TOPIC_VALUE
+////////////////////////////////////////////////////////////////////////////////
+void GetRouteInfoRequestHeader::encode(std::string& outData)
+{
+    std::stringstream ss;
+    ss << "{"
+       << "\"topic\":\"" << topic << "\""
+       << "}";
+
+    outData = ss.str();
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// UPDATE_AND_CREATE_TOPIC_VALUE
+////////////////////////////////////////////////////////////////////////////////
+void CreateTopicRequestHeader::encode(std::string& outData)
+{
+    std::stringstream ss;
+
+    ss << "{"
+       << "\"topic\":\"" << topic << "\","
+       << "\"defaultTopic\":\"" << defaultTopic << "\","
+	   << "\"readQueueNums\":\"" << readQueueNums << "\","
+	   << "\"writeQueueNums\":\"" << writeQueueNums << "\","
+	   << "\"perm\":\"" << perm << "\","
+	   << "\"topicFilterType\":\"" << topicFilterType << "\","
+	   << "\"topicSysFlag\":\"" << topicFilterType << "\","
+	   << "\"order\":\"" << topicFilterType << "\""
+       << "}";
+
+    outData = ss.str();
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// SEND_MESSAGE_VALUE/SEND_MESSAGE_V2_VALUE
+////////////////////////////////////////////////////////////////////////////////
+void SendMessageRequestHeader::encode(std::string& outData)
+{
+    std::stringstream ss;
+
+    ss << "{"
+       << "\"producerGroup\":\"" << producerGroup << "\","
+       << "\"topic\":\"" << topic << "\","
+       << "\"defaultTopic\":\"" << defaultTopic << "\","
+       << "\"defaultTopicQueueNums\":" << defaultTopicQueueNums << ","
+       << "\"queueId\":" << queueId << ","
+       << "\"sysFlag\":" << sysFlag << ","
+       << "\"bornTimestamp\":" << bornTimestamp << ","
+       << "\"flag\":" << flag << ","
+       << "\"properties\":\"" << properties << "\","
+       << "\"reconsumeTimes\":" << reconsumeTimes
+       << "}";
+
+    outData = ss.str();
+}
+
+void SendMessageRequestHeaderV2::encode(std::string& outData)
+{
+    std::stringstream ss;
+
+    ss << "{"
+       << "\"a\":\"" << a << "\","
+       << "\"b\":\"" << b << "\","
+       << "\"c\":\"" << c << "\","
+       << "\"d\":\"" << d << "\","
+       << "\"e\":\"" << e << "\","
+       << "\"f\":\"" << f << "\","
+       << "\"g\":\"" << g << "\","
+       << "\"h\":\"" << h << "\","
+       << "\"i\":\"" << i << "\","
+       << "\"j\":\"" << j << "\""
+       << "}";
+
+    outData = ss.str();
+}
+
+SendMessageRequestHeader* SendMessageRequestHeaderV2::createSendMessageRequestHeaderV1(
+	const SendMessageRequestHeaderV2* v2)
+{
+    SendMessageRequestHeader* v1 = new SendMessageRequestHeader();
+    v1->producerGroup = v2->a;
+    v1->topic = v2->b;
+    v1->defaultTopic = v2->c;
+    v1->defaultTopicQueueNums = v2->d;
+    v1->queueId = v2->e;
+    v1->sysFlag = v2->f;
+    v1->bornTimestamp = v2->g;
+    v1->flag = v2->h;
+    v1->properties = v2->i;
+    v1->reconsumeTimes = v2->j;
+
+    return v1;
+}
+
+SendMessageRequestHeaderV2* SendMessageRequestHeaderV2::createSendMessageRequestHeaderV2(
+	const SendMessageRequestHeader* v1)
+{
+    SendMessageRequestHeaderV2* v2 = new SendMessageRequestHeaderV2();
+    v2->a = v1->producerGroup;
+    v2->b = v1->topic;
+    v2->c = v1->defaultTopic;
+    v2->d = v1->defaultTopicQueueNums;
+    v2->e = v1->queueId;
+    v2->f = v1->sysFlag;
+    v2->g = v1->bornTimestamp;
+    v2->h = v1->flag;
+    v2->i = v1->properties;
+    v2->j = v1->reconsumeTimes;
+
+    return v2;
+}
+
+void SendMessageResponseHeader::encode(std::string& outData)
 {
 }
 
-GetRouteInfoRequestHeader::~GetRouteInfoRequestHeader()
+CommandCustomHeader* SendMessageResponseHeader::decode(Json::Value& data)
 {
+    std::string msgId = data["msgId"].asString();
+    int queueId = atoi(data["queueId"].asCString());
+    long long queueOffset = KPRUtil::str2ll(data["queueOffset"].asCString());
 
-}
+    SendMessageResponseHeader* h = new SendMessageResponseHeader();
 
-void GetRouteInfoRequestHeader::Encode(std::string& outData)
-{
-	std::stringstream ss;
-	ss<<"{"<<"\"topic\":"<<"\""<<topic<<"\"}";
+    h->msgId = msgId;
+    h->queueId = queueId;
+    h->queueOffset = queueOffset;
 
-	outData = ss.str();
-}
-
-//
-//CreateTopicRequestHeader
-//
-CreateTopicRequestHeader::CreateTopicRequestHeader()
-{
-}
-
-CreateTopicRequestHeader::~CreateTopicRequestHeader()
-{
-}
-
-void CreateTopicRequestHeader::Encode(std::string& outData)
-{
-	std::stringstream ss;
-
-	ss<<"{"<<"\"topic\":"<<"\""<<topic<<"\","
-		<<"\"defaultTopic\":"<<"\""<<defaultTopic<<"\","
-		<<"\"readQueueNums\":"<<readQueueNums<<","
-		<<"\"writeQueueNums\":"<<writeQueueNums<<","
-		<<"\"perm\":"<<perm<<","
-		<<"\"topicFilterType\":"<<"\""<<topicFilterType<<"\""
-		<<"}";
-
-	outData = ss.str();
-}
-
-//
-//SendMessageRequestHeader
-//
-SendMessageRequestHeader::SendMessageRequestHeader()
-{
-}
-
-SendMessageRequestHeader::~SendMessageRequestHeader()
-{
-}
-
-void SendMessageRequestHeader::Encode(std::string& outData)
-{
-	std::stringstream ss;
-
-	ss<<"{"<<"\"producerGroup\":"<<"\""<<producerGroup<<"\","
-		<<"\"topic\":"<<"\""<<topic<<"\","
-		<<"\"defaultTopic\":"<<"\""<<defaultTopic<<"\","
-		<<"\"defaultTopicQueueNums\":"<<defaultTopicQueueNums<<","
-		<<"\"queueId\":"<<queueId<<","
-		<<"\"sysFlag\":"<<sysFlag<<","
-		<<"\"bornTimestamp\":"<<bornTimestamp<<","
-		<<"\"flag\":"<<flag<<","
-		<<"\"properties\":"<<"\""<<properties<<"\","
-		<<"\"reconsumeTimes\":"<<reconsumeTimes
-		<<"}";
-
-	outData = ss.str();
-}
-//
-//SendMessageResponseHeader
-//
-
-SendMessageResponseHeader::SendMessageResponseHeader()
-{
-}
-
-SendMessageResponseHeader::~SendMessageResponseHeader()
-{
-}
-
-void SendMessageResponseHeader::Encode(std::string& outData)
-{
-	std::stringstream ss;
-
-	ss<<"{"<<"\"msgId\":"<<"\""<<msgId<<"\","
-		<<"\"queueId\":"<<queueId<<","
-		<<"\"queueOffset\":"<<queueOffset
-		<<"}";
-
-	outData = ss.str();
-}
-
-CommandCustomHeader* SendMessageResponseHeader::Decode(char* pData,int len)
-{
-	Json::Reader reader;
-	Json::Value object;
-	if (!reader.parse(pData+8, object))
-	{
-		return NULL;
-	}
-
-	Json::Value ext = object["extFields"];
-
-	std::string msgId = ext["msgId"].asString();
-	int queueId = atoi(ext["queueId"].asCString());
-	long long queueOffset = str2ll(ext["queueOffset"].asCString());
-
-	SendMessageResponseHeader* h = new SendMessageResponseHeader();
-
-	h->msgId = msgId;
-	h->queueId = queueId;
-	h->queueOffset = queueOffset;
-
-	return h;
-}
-
-//
-//PullMessageRequestHeader
-//
-PullMessageRequestHeader::PullMessageRequestHeader()
-{
-}
-
-PullMessageRequestHeader::~PullMessageRequestHeader()
-{
-}
-
-void PullMessageRequestHeader::Encode(std::string& outData)
-{
-	std::stringstream ss;
-
-	ss<<"{"<<"\"consumerGroup\":"<<"\""<<consumerGroup<<"\","
-		<<"\"topic\":"<<"\""<<topic<<"\","
-		<<"\"queueId\":"<<queueId<<","
-		<<"\"queueOffset\":"<<queueOffset<<","
-		<<"\"maxMsgNums\":"<<maxMsgNums<<","
-		<<"\"sysFlag\":"<<sysFlag<<","
-		<<"\"commitOffset\":"<<commitOffset<<","
-		<<"\"suspendTimeoutMillis\":"<<suspendTimeoutMillis<<","
-		<<"\"subscription\":"<<"\""<<subscription<<"\","
-		<<"\"subVersion\":"<<subVersion
-		<<"}";
-
-	outData = ss.str();
-}
-
-//
-//PullMessageResponseHeader
-//
-PullMessageResponseHeader::PullMessageResponseHeader()
-{
-}
-
-PullMessageResponseHeader::~PullMessageResponseHeader()
-{
-}
-
-void PullMessageResponseHeader::Encode(std::string& outData)
-{
-	std::stringstream ss;
-
-	ss<<"{"<<"\"suggestWhichBrokerId\":"<<suggestWhichBrokerId<<","
-		<<"\"nextBeginOffset\":"<<nextBeginOffset<<","
-		<<"\"minOffset\":"<<minOffset<<","
-		<<"\"maxOffset\":"<<maxOffset
-		<<"}";
-
-	outData = ss.str();
-}
-
-CommandCustomHeader* PullMessageResponseHeader::Decode(char* pData,int len)
-{
-	Json::Reader reader;
-	Json::Value object;
-	if (!reader.parse(pData+8, object))
-	{
-		return NULL;
-	}
-
-	Json::Value ext = object["extFields"];
-	long long suggestWhichBrokerId = str2ll(ext["suggestWhichBrokerId"].asCString());
-	long long nextBeginOffset = str2ll(ext["nextBeginOffset"].asCString());
-	long long minOffset = str2ll(ext["minOffset"].asCString());
-	long long maxOffset = str2ll(ext["maxOffset"].asCString());
-
-	PullMessageResponseHeader* h = new PullMessageResponseHeader();
-
-	h->suggestWhichBrokerId = suggestWhichBrokerId;
-	h->nextBeginOffset = nextBeginOffset;
-	h->minOffset = minOffset;
-	h->maxOffset = maxOffset;
-
-	return h;
-}
-
-GetConsumerListByGroupRequestHeader::GetConsumerListByGroupRequestHeader()
-{
-
-}
-
-GetConsumerListByGroupRequestHeader::~GetConsumerListByGroupRequestHeader()
-{
-
-}
-
-void GetConsumerListByGroupRequestHeader::Encode( std::string& outData )
-{
-	std::stringstream ss;
-
-	ss<<"{"<<"\"consumerGroup\":"<<"\""<<consumerGroup<<"\"}";
-
-	outData = ss.str();
-}
-
-CommandCustomHeader* GetConsumerListByGroupRequestHeader::Decode( char* pData,int len )
-{
-	return NULL;
+    return h;
 }
 
 
-GetConsumerListByGroupResponseHeader::GetConsumerListByGroupResponseHeader()
+////////////////////////////////////////////////////////////////////////////////
+// PULL_MESSAGE_VALUE
+////////////////////////////////////////////////////////////////////////////////
+void PullMessageRequestHeader::encode(std::string& outData)
 {
+    std::stringstream ss;
 
+    ss << "{"
+       << "\"consumerGroup\":\"" << consumerGroup << "\","
+       << "\"topic\":\"" << topic << "\","
+       << "\"queueId\":\"" << queueId << "\","
+       << "\"queueOffset\":\"" << queueOffset << "\","
+       << "\"maxMsgNums\":\"" << maxMsgNums << "\","
+       << "\"sysFlag\":\"" << sysFlag << "\","
+       << "\"commitOffset\":\"" << commitOffset << "\","
+       << "\"suspendTimeoutMillis\":\"" << suspendTimeoutMillis << "\","
+       << "\"subscription\":\"" << subscription << "\","
+       << "\"subVersion\":\"" << subVersion << "\""
+       << "}";
+
+    outData = ss.str();
 }
 
-GetConsumerListByGroupResponseHeader::~GetConsumerListByGroupResponseHeader()
-{
-
-}
-
-void GetConsumerListByGroupResponseHeader::Encode( std::string& outData )
-{
-	outData="{}";
-}
-
-CommandCustomHeader* GetConsumerListByGroupResponseHeader::Decode( char* pData,int len )
-{
-	return new GetConsumerListByGroupResponseHeader();
-}
-
-ConsumerSendMsgBackRequestHeader::ConsumerSendMsgBackRequestHeader()
-{
-
-}
-
-ConsumerSendMsgBackRequestHeader::~ConsumerSendMsgBackRequestHeader()
-{
-
-}
-
-void ConsumerSendMsgBackRequestHeader::Encode( std::string& outData )
+void PullMessageResponseHeader::encode(std::string& outData)
 {
 	std::stringstream ss;
-
-	ss<<"{"<<"\"offset\":"<<"\""<<offset<<"\","
-		<<"\"group\":"<<"\""<<group<<"\","
-		<<"\"delayLevel\":"<<"\""<<delayLevel<<"\""
-		<<"}";
-
-	outData = ss.str();
+    ss  << "{"
+        << "\"suggestWhichBrokerId\":\"" << suggestWhichBrokerId << "\","
+        << "\"nextBeginOffset\":\"" << nextBeginOffset << "\","
+        << "\"minOffset\":\"" << minOffset << "\","
+        << "\"maxOffset\":\"" << maxOffset << "\""
+        << "}";
+    outData = ss.str();
 }
 
-CommandCustomHeader* ConsumerSendMsgBackRequestHeader::Decode( char* pData,int len )
+CommandCustomHeader* PullMessageResponseHeader::decode(Json::Value& data)
 {
-	return new ConsumerSendMsgBackRequestHeader();
+    long long suggestWhichBrokerId = KPRUtil::str2ll(data["suggestWhichBrokerId"].asCString());
+    long long nextBeginOffset = KPRUtil::str2ll(data["nextBeginOffset"].asCString());
+    long long minOffset = KPRUtil::str2ll(data["minOffset"].asCString());
+    long long maxOffset = KPRUtil::str2ll(data["maxOffset"].asCString());
+
+    PullMessageResponseHeader* h = new PullMessageResponseHeader();
+    h->suggestWhichBrokerId = suggestWhichBrokerId;
+    h->nextBeginOffset = nextBeginOffset;
+    h->minOffset = minOffset;
+    h->maxOffset = maxOffset;
+
+    return h;
 }
 
-/**
-*  QueryConsumerOffsetRequestHeader 
-*/
 
-QueryConsumerOffsetRequestHeader::QueryConsumerOffsetRequestHeader()
+
+////////////////////////////////////////////////////////////////////////////////
+// GET_CONSUMER_LIST_BY_GROUP_VALUE
+////////////////////////////////////////////////////////////////////////////////
+void GetConsumerListByGroupRequestHeader::encode(std::string& outData)
 {
+    std::stringstream ss;
 
+    ss << "{"
+       << "\"consumerGroup\":\"" << consumerGroup << "\""
+       << "}";
+
+    outData = ss.str();
 }
 
-QueryConsumerOffsetRequestHeader::~QueryConsumerOffsetRequestHeader()
+
+////////////////////////////////////////////////////////////////////////////////
+// CONSUMER_SEND_MSG_BACK_VALUE
+////////////////////////////////////////////////////////////////////////////////
+void ConsumerSendMsgBackRequestHeader::encode(std::string& outData)
 {
+    std::stringstream ss;
 
+    ss << "{"
+       << "\"offset\":\"" << offset << "\","
+       << "\"group\":\"" << group << "\","
+       << "\"delayLevel\":\"" << delayLevel << "\""
+       << "}";
+
+    outData = ss.str();
 }
 
-void QueryConsumerOffsetRequestHeader::Encode(std::string& outData)
+
+////////////////////////////////////////////////////////////////////////////////
+// QUERY_CONSUMER_OFFSET_VALUE
+////////////////////////////////////////////////////////////////////////////////
+void QueryConsumerOffsetRequestHeader::encode(std::string& outData)
+{
+    std::stringstream ss;
+    ss  << "{"
+        << "\"consumerGroup\":\"" << consumerGroup << "\","
+        << "\"topic\":\"" << topic << "\","
+        << "\"queueId\":\"" << queueId << "\""
+        << "}";
+    outData = ss.str();
+}
+
+void QueryConsumerOffsetResponseHeader::encode(std::string& outData)
 {
 	std::stringstream ss;
-	ss<<"{"<<"\"consumerGroup\":"<<"\""<<consumerGroup<<"\","
-		<<"\"topic\":"<<"\""<<topic<<"\","
-		<<"\"queueId\":"<<queueId<<"}";
-
-	outData = ss.str();
+    ss  << "{"
+        << "\"offset\":\"" << offset << "\""
+        << "}";
+    outData = ss.str();
 }
 
-CommandCustomHeader* QueryConsumerOffsetRequestHeader::Decode(char* pData,int len)
+CommandCustomHeader* QueryConsumerOffsetResponseHeader::decode(Json::Value& data)
 {
-	return new QueryConsumerOffsetRequestHeader();
-}
-
-/**
-*  QueryConsumerOffsetResponseHeader 
-*/
-
-QueryConsumerOffsetResponseHeader::QueryConsumerOffsetResponseHeader()
-{
-
-}
-
-QueryConsumerOffsetResponseHeader::~QueryConsumerOffsetResponseHeader()
-{
-
-}
-
-void QueryConsumerOffsetResponseHeader::Encode(std::string& outData)
-{
-	std::stringstream ss;
-	ss<<"{\"offset\":"<<offset<<"}";
-
-	outData = ss.str();
-}
-
-CommandCustomHeader* QueryConsumerOffsetResponseHeader::Decode(char* pData,int len)
-{
-	Json::Reader reader;
-	Json::Value object;
-	if (!reader.parse(pData+8, object))
-	{
-		return NULL;
-	}
-
 	long long offset = -1;
 
-	Json::Value ext = object["extFields"];
-	if (ext.begin() != ext.end()) {
-		Json::Value offsetValue = ext["offset"];
-		if (!offsetValue.isNull()) {
-			offset = str2ll(offsetValue.asCString());
-		} else {
-			std::cout << "extFields does not have offset info" << std::endl;
-		}
-	} else {
-		std::cout << "extFields is missing" << std::endl;
-		Json::Value remarkValue = object["remark"];
-		if (!remarkValue.isNull()) {
-			std::cout << "Remark: " << remarkValue.asString() << std::endl;
-		}
-		std::cout << "Return -1 as consumer offset." << std::endl;
-	}
+	if (data.isMember("offset"))
+	{
+    	offset = KPRUtil::str2ll(data["offset"].asCString());
+    }
 
-	QueryConsumerOffsetResponseHeader* res= new QueryConsumerOffsetResponseHeader();
-	res->offset = offset;
+    QueryConsumerOffsetResponseHeader* h = new QueryConsumerOffsetResponseHeader();
+    h->offset = offset;
 
-	return res;
+    return h;
 }
 
 
-/**
-*  UpdateConsumerOffsetRequestHeader 
-*/
-UpdateConsumerOffsetRequestHeader::UpdateConsumerOffsetRequestHeader()
+////////////////////////////////////////////////////////////////////////////////
+// UPDATE_CONSUMER_OFFSET_VALUE
+////////////////////////////////////////////////////////////////////////////////
+void UpdateConsumerOffsetRequestHeader::encode(std::string& outData)
 {
-
+    std::stringstream ss;
+    ss  << "{"
+        << "\"consumerGroup\":\"" << consumerGroup << "\","
+        << "\"topic\":\"" << topic << "\","
+        << "\"queueId\":\"" << queueId << "\","
+        << "\"commitOffset\":\"" << commitOffset << "\""
+        << "}";
+    outData = ss.str();
 }
-UpdateConsumerOffsetRequestHeader::~UpdateConsumerOffsetRequestHeader()
+
+
+////////////////////////////////////////////////////////////////////////////////
+// UNREGISTER_CLIENT_VALUE
+////////////////////////////////////////////////////////////////////////////////
+void UnregisterClientRequestHeader::encode(std::string& outData)
 {
-
+    std::stringstream ss;
+    ss  << "{"
+        << "\"producerGroup\":\"" << producerGroup << "\","
+        << "\"consumerGroup\":\"" << consumerGroup << "\","
+        << "\"clientID\":\"" << clientID << "\""
+        << "}";
+    outData = ss.str();
 }
 
-void UpdateConsumerOffsetRequestHeader::Encode(std::string& outData)
+
+///////////////////////////////////////////////////////////////////////
+// VIEW_MESSAGE_BY_ID_VALUE
+///////////////////////////////////////////////////////////////////////
+void ViewMessageRequestHeader::encode(std::string& outData)
+{
+    std::stringstream ss;
+    ss  << "{"
+        << "\"offset\":" << offset
+        << "}";
+    outData = ss.str();
+}
+
+
+///////////////////////////////////////////////////////////////////////
+// SEARCH_OFFSET_BY_TIMESTAMP_VALUE
+///////////////////////////////////////////////////////////////////////
+void SearchOffsetRequestHeader::encode(std::string& outData)
+{
+    std::stringstream ss;
+    ss  << "{"
+        << "\"topic\":\"" << topic << "\","
+        << "\"queueId\":\"" << queueId << "\","
+        << "\"timestamp\":\"" << timestamp << "\""
+        << "}";
+    outData = ss.str();
+}
+
+void SearchOffsetResponseHeader::encode(std::string& outData)
 {
 	std::stringstream ss;
-
-	ss<<"{"<<"\"consumerGroup\":"<<"\""<<consumerGroup<<"\","
-		<<"\"topic\":"<<"\""<<topic<<"\","
-		<<"\"queueId\":"<<queueId<<","
-		<<"\"commitOffset\":"<<commitOffset<<"}";
-
-	outData = ss.str();
+    ss  << "{"
+        << "\"offset\":\"" << offset << "\""
+        << "}";
+    outData = ss.str();
 }
 
-CommandCustomHeader* UpdateConsumerOffsetRequestHeader::Decode(char* pData,int len)
+CommandCustomHeader* SearchOffsetResponseHeader::decode(Json::Value& data)
 {
-	return new UpdateConsumerOffsetRequestHeader();
+    long long offset = KPRUtil::str2ll(data["offset"].asCString());
+
+    SearchOffsetResponseHeader* h = new SearchOffsetResponseHeader();
+    h->offset = offset;
+
+    return h;
+}
+
+
+///////////////////////////////////////////////////////////////////////
+// GET_MAX_OFFSET_VALUE
+///////////////////////////////////////////////////////////////////////
+void GetMaxOffsetRequestHeader::encode(std::string& outData)
+{
+    std::stringstream ss;
+    ss  << "{"
+        << "\"topic\":\"" << topic << "\","
+        << "\"queueId\":\"" << queueId << "\""
+        << "}";
+    outData = ss.str();
+}
+
+void GetMaxOffsetResponseHeader::encode(std::string& outData)
+{
+	std::stringstream ss;
+    ss  << "{"
+        << "\"offset\":\"" << offset << "\""
+        << "}";
+    outData = ss.str();
+}
+
+CommandCustomHeader* GetMaxOffsetResponseHeader::decode(Json::Value& data)
+{
+    long long offset = KPRUtil::str2ll(data["offset"].asCString());
+
+    GetMaxOffsetResponseHeader* h = new GetMaxOffsetResponseHeader();
+    h->offset = offset;
+
+    return h;
+}
+
+
+///////////////////////////////////////////////////////////////////////
+// GET_MIN_OFFSET_VALUE
+///////////////////////////////////////////////////////////////////////
+void GetMinOffsetRequestHeader::encode(std::string& outData)
+{
+    std::stringstream ss;
+    ss  << "{"
+        << "\"topic\":\"" << topic << "\","
+        << "\"queueId\":\"" << queueId << "\""
+        << "}";
+    outData = ss.str();
+}
+
+void GetMinOffsetResponseHeader::encode(std::string& outData)
+{
+	std::stringstream ss;
+    ss  << "{"
+        << "\"offset\":\"" << offset << "\""
+        << "}";
+    outData = ss.str();
+}
+
+CommandCustomHeader* GetMinOffsetResponseHeader::decode(Json::Value& data)
+{
+    long long offset = KPRUtil::str2ll(data["offset"].asCString());
+
+    GetMinOffsetResponseHeader* h = new GetMinOffsetResponseHeader();
+    h->offset = offset;
+
+    return h;
+}
+
+
+
+///////////////////////////////////////////////////////////////////////
+// GET_EARLIEST_MSG_STORETIME_VALUE
+///////////////////////////////////////////////////////////////////////
+void GetEarliestMsgStoretimeRequestHeader::encode(std::string& outData)
+{
+    std::stringstream ss;
+    ss  << "{"
+        << "\"topic\":\"" << topic << "\","
+        << "\"queueId\":\"" << queueId << "\""
+        << "}";
+    outData = ss.str();
+}
+
+void GetEarliestMsgStoretimeResponseHeader::encode(std::string& outData)
+{
+	std::stringstream ss;
+    ss  << "{"
+        << "\"timestamp\":\"" << timestamp << "\""
+        << "}";
+    outData = ss.str();
+}
+
+
+CommandCustomHeader* GetEarliestMsgStoretimeResponseHeader::decode(Json::Value& data)
+{
+    long long timestamp = KPRUtil::str2ll(data["timestamp"].asCString());
+
+    GetEarliestMsgStoretimeResponseHeader* h = new GetEarliestMsgStoretimeResponseHeader();
+    h->timestamp = timestamp;
+
+    return h;
+}
+
+
+///////////////////////////////////////////////////////////////////////
+// QUERY_MESSAGE_VALUE
+///////////////////////////////////////////////////////////////////////
+void QueryMessageRequestHeader::encode(std::string& outData)
+{
+    std::stringstream ss;
+    ss  << "{"
+        << "\"topic\":\"" << topic << "\","
+        << "\"key\":\"" << key << "\","
+        << "\"maxNum\":\"" << maxNum << "\","
+        << "\"beginTimestamp\":\"" << beginTimestamp << "\","
+        << "\"endTimestamp\":\"" << endTimestamp << "\""
+        << "}";
+    outData = ss.str();
+}
+
+void QueryMessageResponseHeader::encode(std::string& outData)
+{
+	std::stringstream ss;
+    ss  << "{"
+        << "\"indexLastUpdateTimestamp\":\"" << indexLastUpdateTimestamp << "\","
+        << "\"indexLastUpdatePhyoffset\":\"" << indexLastUpdatePhyoffset << "\""
+        << "}";
+    outData = ss.str();
+}
+
+CommandCustomHeader* QueryMessageResponseHeader::decode(Json::Value& data)
+{
+    long long indexLastUpdateTimestamp = KPRUtil::str2ll(data["indexLastUpdateTimestamp"].asCString());
+    long long indexLastUpdatePhyoffset = KPRUtil::str2ll(data["indexLastUpdatePhyoffset"].asCString());
+
+    QueryMessageResponseHeader* h = new QueryMessageResponseHeader();
+    h->indexLastUpdateTimestamp = indexLastUpdateTimestamp;
+    h->indexLastUpdatePhyoffset = indexLastUpdatePhyoffset;
+
+    return h;
+}
+
+
+///////////////////////////////////////////////////////////////////////
+// GET_KV_CONFIG_VALUE
+///////////////////////////////////////////////////////////////////////
+void GetKVConfigRequestHeader::encode(std::string& outData)
+{
+    std::stringstream ss;
+    ss  << "{"
+        << "\"namespace\":\"" << namespace_ << "\","
+        << "\"key\":\"" << key << "\""
+        << "}";
+    outData = ss.str();
+}
+
+void GetKVConfigResponseHeader::encode(std::string& outData)
+{
+	std::stringstream ss;
+    ss  << "{"
+        << "\"value\":\"" << value << "\""
+        << "}";
+    outData = ss.str();
+}
+
+CommandCustomHeader* GetKVConfigResponseHeader::decode(Json::Value& data)
+{
+    GetKVConfigResponseHeader* h = new GetKVConfigResponseHeader();
+    h->value = data["value"].asString();
+
+    return h;
+}
+
+
+///////////////////////////////////////////////////////////////////////
+// NOTIFY_CONSUMER_IDS_CHANGED_VALUE
+///////////////////////////////////////////////////////////////////////
+void NotifyConsumerIdsChangedRequestHeader::encode(std::string& outData)
+{
+    std::stringstream ss;
+    ss  << "{"
+        << "\"consumerGroup\":\"" << consumerGroup << "\""
+        << "}";
+    outData = ss.str();
+}
+
+CommandCustomHeader* NotifyConsumerIdsChangedRequestHeader::decode(Json::Value& data)
+{
+    NotifyConsumerIdsChangedRequestHeader* h = new NotifyConsumerIdsChangedRequestHeader();
+    h->consumerGroup = data["consumerGroup"].asString();
+
+    return h;
+}
+
+
+///////////////////////////////////////////////////////////////////////
+// GET_CONSUMER_RUNNING_INFO_VALUE
+///////////////////////////////////////////////////////////////////////
+void GetConsumerRunningInfoRequestHeader::encode(std::string& outData)
+{
+    std::stringstream ss;
+    ss  << "{"
+        << "\"consumerGroup\":\"" << consumerGroup << "\","
+        << "\"clientId\":\"" << clientId << "\","
+        << "\"jstackEnable\":\"" << jstackEnable << "\","
+        << "}";
+    outData = ss.str();
+}
+
+CommandCustomHeader* GetConsumerRunningInfoRequestHeader::decode(Json::Value& data)
+{
+    GetConsumerRunningInfoRequestHeader* h = new GetConsumerRunningInfoRequestHeader();
+    h->consumerGroup = data["consumerGroup"].asString();
+    h->clientId = data["clientId"].asString();
+    h->jstackEnable = false;//not support
+
+    return h;
+}
+
+
 }

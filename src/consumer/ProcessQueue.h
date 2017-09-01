@@ -14,94 +14,89 @@
 * limitations under the License.
 */
 
-#if!defined __PROCESSQUEUE_H__
+#ifndef __PROCESSQUEUE_H__
 #define __PROCESSQUEUE_H__
 
 #include <list>
 #include <map>
-
 #include "Mutex.h"
 #include "AtomicValue.h"
 
-class MessageExt;
-
-/**
-* 正在被消费的队列，含消息
-*
-*/
-class ProcessQueue
+namespace rmq
 {
+    class MessageExt;
+	class DefaultMQPushConsumer;
 
-public:
-	ProcessQueue();
+    class ProcessQueue
+    {
+    public:
+		static const unsigned int s_RebalanceLockMaxLiveTime = 30000;
+		static const unsigned int s_RebalanceLockInterval = 20000;
+		static const unsigned int s_PullMaxIdleTime = 120000;
 
-	bool isLockExpired();
+    public:
+        ProcessQueue();
 
-	/**
-	* @return 是否需要分发当前队列到消费线程池
-	*/
-	bool putMessage(const std::list<MessageExt*>& msgs);
+        bool isLockExpired();
+		bool isPullExpired();
 
-	/**
-	* 获取当前队列的最大跨度
-	*/
-	long long getMaxSpan();
+		void cleanExpiredMsg(DefaultMQPushConsumer* pPushConsumer);
+        bool putMessage(const std::list<MessageExt*>& msgs);
 
-	/**
-	* 删除已经消费过的消息，返回最小Offset，这个Offset对应的消息未消费
-	*
-	* @param msgs
-	* @return
-	*/
-	long long removeMessage(const std::list<MessageExt*>& msgs);
+        long long getMaxSpan();
+        long long removeMessage(std::list<MessageExt*>& msgs);
 
-	std::map<long long, MessageExt*> getMsgTreeMap();
+		void clear();
 
-	AtomicLong getMsgCount();
-	bool isDropped();
-	void setDropped(bool dropped);
+        std::map<long long, MessageExt*> getMsgTreeMap();
+        kpr::AtomicInteger getMsgCount();
+        bool isDropped();
+        void setDropped(bool dropped);
 
-	/**
-	* ========================================================================
-	* 以下部分为顺序消息专有操作
-	*/
+		unsigned long long getLastPullTimestamp();
+		void setLastPullTimestamp(unsigned long long lastPullTimestamp);
 
-	void setLocked(bool locked);
-	bool isLocked();
-	void rollback();
+		unsigned long long getLastConsumeTimestamp();
+		void setLastConsumeTimestamp(unsigned long long lastConsumeTimestamp);
 
-	long long commit();
-	void makeMessageToCosumeAgain(const std::list<MessageExt*>& msgs);
+        /**
+        * ========================================================================
+        */
+		kpr::Mutex& getLockConsume();
+        void setLocked(bool locked);
+        bool isLocked();
+		long long getTryUnlockTimes();
+		void incTryUnlockTimes();
 
-	/**
-	* 如果取不到消息，则将正在消费状态置为false
-	*
-	* @param batchSize
-	* @return
-	*/
-	std::list<MessageExt*> takeMessages(int batchSize);
+        void rollback();
+        long long commit();
+        void makeMessageToCosumeAgain(const std::list<MessageExt*>& msgs);
 
-	long long getLastLockTimestamp();
-	void setLastLockTimestamp(long long lastLockTimestamp);
+        std::list<MessageExt*> takeMessages(int batchSize);
 
-public:
-	static unsigned int s_RebalanceLockMaxLiveTime;// 客户端本地Lock存活最大时间，超过则自动过期，单位ms
-	static unsigned int s_RebalanceLockInterval;// 定时Lock间隔时间，单位ms
+        long long getLastLockTimestamp();
+        void setLastLockTimestamp(long long lastLockTimestamp);
 
-private:
-	kpr::Mutex m_lockTreeMap;
-	std::map<long long, MessageExt*> m_msgTreeMap;
-	volatile long long m_queueOffsetMax ;
-	AtomicLong m_msgCount;
-	volatile bool m_dropped;// 当前Q是否被rebalance丢弃
 
-	/**
-	* 顺序消息专用
-	*/
-	volatile bool m_locked;// 是否从Broker锁定
-	volatile unsigned long long m_lastLockTimestamp;// 最后一次锁定成功时间戳
-	volatile bool m_consuming;// 是否正在被消费
-	std::map<long long, MessageExt*> m_msgTreeMapTemp;// 事务方式消费，未提交的消息
-};
+    private:
+        kpr::RWMutex m_lockTreeMap;
+        std::map<long long, MessageExt*> m_msgTreeMap;
+        volatile long long m_queueOffsetMax ;
+        kpr::AtomicInteger m_msgCount;
+        volatile bool m_dropped;
+        volatile unsigned long long m_lastPullTimestamp;
+		volatile unsigned long long m_lastConsumeTimestamp;
+
+        /**
+        * order message
+        */
+        kpr::Mutex m_lockConsume;
+        volatile bool m_locked;
+        volatile unsigned long long m_lastLockTimestamp;
+        volatile bool m_consuming;
+        std::map<long long, MessageExt*> m_msgTreeMapTemp;
+        kpr::AtomicInteger m_tryUnlockTimes;
+    };
+}
 
 #endif

@@ -14,41 +14,42 @@
 * limitations under the License.
 */
 
-#if!defined __REBALANCEPUSHIMPL_H__
+#ifndef __REBALANCEPUSHIMPL_H__
 #define __REBALANCEPUSHIMPL_H__
 
 #include "RebalanceImpl.h"
-#include <string.h>
-#include <climits>
-#include "DefaultMQPushConsumerImpl.h"
-#include "AllocateMessageQueueStrategy.h"
-#include "MQClientFactory.h"
-#include "MessageQueueListener.h"
-#include "OffsetStore.h"
-#include "DefaultMQPushConsumer.h"
 
+namespace rmq
+{
 class DefaultMQPushConsumerImpl;
 
 class RebalancePushImpl : public RebalanceImpl
 {
 public:
-	RebalancePushImpl(DefaultMQPushConsumerImpl* pDefaultMQPushConsumerImpl);
+    RebalancePushImpl(DefaultMQPushConsumerImpl *pDefaultMQPushConsumerImpl);
 
-	RebalancePushImpl(const std::string& consumerGroup,
-		MessageModel messageModel,
-		AllocateMessageQueueStrategy* pAllocateMessageQueueStrategy,
-		MQClientFactory* pMQClientFactory,
-		DefaultMQPushConsumerImpl* pDefaultMQPushConsumerImpl);
+    RebalancePushImpl(const std::string &consumerGroup,
+                      MessageModel messageModel,
+                      AllocateMessageQueueStrategy *pAllocateMessageQueueStrategy,
+                      MQClientFactory *pMQClientFactory,
+                      DefaultMQPushConsumerImpl *pDefaultMQPushConsumerImpl);
 
-	void dispatchPullRequest(std::list<PullRequest*>& pullRequestList);
-	long long computePullFromWhere(MessageQueue& mq);
-	void messageQueueChanged(const std::string& topic,
-		std::set<MessageQueue>& mqAll, 
-		std::set<MessageQueue>& mqDivided);
-	void removeUnnecessaryMessageQueue(MessageQueue& mq, ProcessQueue& pq);
+    void dispatchPullRequest(std::list<PullRequest *> &pullRequestList);
+    long long computePullFromWhere(MessageQueue &mq);
+    void messageQueueChanged(const std::string &topic,
+                             std::set<MessageQueue> &mqAll,
+                             std::set<MessageQueue> &mqDivided);
+    bool removeUnnecessaryMessageQueue(MessageQueue &mq, ProcessQueue &pq);
+
+
+    ConsumeType consumeType()
+    {
+        return CONSUME_PASSIVELY;
+    };
 
 private:
-	DefaultMQPushConsumerImpl* m_pDefaultMQPushConsumerImpl;
+    DefaultMQPushConsumerImpl *m_pDefaultMQPushConsumerImpl;
 };
+}
 
 #endif

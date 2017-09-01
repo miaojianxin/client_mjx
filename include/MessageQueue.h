@@ -14,44 +14,57 @@
 * limitations under the License.
 */
 
-#if!defined __MESSAGEQUEUE_H__
-#define __MESSAGEQUEUE_H__
+#ifndef __RMQ_MESSAGEQUEUE_H__
+#define __RMQ_MESSAGEQUEUE_H__
 
+#include <iostream>
 #include <string>
+#include <sstream>
+
 #include "RocketMQClient.h"
 
-/**
-* 消息队列数据结构，对外提供
-*
-*/
-class ROCKETMQCLIENT_API MessageQueue
+namespace rmq
 {
-public:
-	MessageQueue();
+	/**
+	* Message Queue
+	*
+	*/
+	class MessageQueue
+	{
+	public:
+		MessageQueue();
+		~MessageQueue(){};
 
-	MessageQueue(const std::string& topic, const std::string& brokerName, int queueId);
+		MessageQueue(const std::string& topic, const std::string& brokerName, int queueId);
 
-	std::string getTopic()const;
-	void setTopic(const std::string& topic);
+		std::string getTopic()const;
+		void setTopic(const std::string& topic);
 
-	std::string getBrokerName()const;
-	void setBrokerName(const std::string& brokerName);
+		std::string getBrokerName()const;
+		void setBrokerName(const std::string& brokerName);
 
-	int getQueueId()const;
-	void setQueueId(int queueId);
+		int getQueueId()const;
+		void setQueueId(int queueId);
 
-	std::string toString();
+		int hashCode();
+		std::string toString() const;
+		std::string toJsonString() const;
 
-	int hashCode();
+		bool operator==(const MessageQueue& mq) const;
+		bool operator<(const MessageQueue& mq) const;
+		int compareTo(const MessageQueue& mq) const;
 
-	bool operator==(const MessageQueue& mq)const;
-	bool operator<(const MessageQueue& mq)const;
-	int compareTo(const MessageQueue& mq)const;
+	private:
+		std::string m_topic;
+		std::string m_brokerName;
+		int m_queueId;
+	};
 
-private:
-	std::string m_topic;
-	std::string m_brokerName;
-	int m_queueId;
-};
+	inline std::ostream& operator<<(std::ostream& os, const MessageQueue& obj)
+	{
+	    os << obj.toString();
+	    return os;
+	}
+}
 
 #endif

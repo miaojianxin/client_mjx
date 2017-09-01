@@ -13,7 +13,6 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 */
-
 #include "TcpTransport.h"
 
 #include <stdio.h>
@@ -21,407 +20,368 @@
 #include <memory.h>
 #include <errno.h>
 #include <assert.h>
-#include <string>
-#include <iostream>
-
+#include "KPRUtil.h"
 #include "SocketUtil.h"
+#include "Epoller.h"
 #include "ScopedLock.h"
+
+namespace rmq
+{
 
 const int DEFAULT_SHRINK_COUNT = 32;
 const int DEFAULT_RECV_BUFFER_SIZE = 1024 * 16;
 
 TcpTransport::TcpTransport(std::map<std::string, std::string>& config)
-	:m_sfd(0),
-	 m_state(CLIENT_STATE_UNINIT),
-	 m_pRecvBuf(NULL),
-	 m_recvBufSize(DEFAULT_RECV_BUFFER_SIZE),
-	 m_recvBufUsed(0),
-	 m_shrinkMax(DEFAULT_RECV_BUFFER_SIZE)
-	 ,m_shrinkCheckCnt(DEFAULT_SHRINK_COUNT)
+    : m_sfd(-1),
+      m_state(CLIENT_STATE_UNINIT),
+      m_pRecvBuf(NULL),
+      m_recvBufSize(DEFAULT_RECV_BUFFER_SIZE),
+      m_recvBufUsed(0),
+      m_shrinkMax(DEFAULT_RECV_BUFFER_SIZE),
+      m_shrinkCheckCnt(DEFAULT_SHRINK_COUNT)
 {
-	std::map<std::string, std::string>::iterator it = config.find("tcp.transport.recvBufferSize");
-	if (it != config.end())
-	{
-		m_recvBufSize = atoi(it->second.c_str());
-	}
+    std::map<std::string, std::string>::iterator it = config.find("tcp.transport.recvBufferSize");
+    if (it != config.end())
+    {
+        m_recvBufSize = atoi(it->second.c_str());
+    }
 
-	it = config.find("tcp.transport.enableSSL");
-	if (it != config.end()) {
-		enableSSL = (it->second == "true") || atoi(it->second.c_str()) != 0;
-	}
+    it = config.find("tcp.transport.shrinkCheckMax");
+    if (it != config.end())
+    {
+        m_shrinkCheckCnt = atoi(it->second.c_str());
+    }
 
-	it = config.find("tcp.transport.shrinkCheckMax");
-	if (it != config.end())
-	{
-		m_shrinkCheckCnt = atoi(it->second.c_str());
-	}
+    if (SocketInit() != 0)
+    {
+        m_state = CLIENT_STATE_UNINIT;
+    }
 
-	if (SocketInit() != 0)
-	{
-		m_state = CLIENT_STATE_UNINIT;
-	}
-
-	m_pRecvBuf = (char*)malloc(m_recvBufSize);
-
-	m_state = (NULL == m_pRecvBuf) ? CLIENT_STATE_UNINIT : CLIENT_STATE_INITED;
-    ssl = nullptr;
-    sslContext = nullptr;
+    m_pRecvBuf = (char*)malloc(m_recvBufSize);
+    m_state = (NULL == m_pRecvBuf) ? CLIENT_STATE_UNINIT : CLIENT_STATE_INITED;
+    m_lastSendRecvTime = KPRUtil::GetCurrentTimeMillis();
 }
 
 TcpTransport::~TcpTransport()
 {
-	Close();
+    close();
 
-	if (m_pRecvBuf)
-	{
-		free(m_pRecvBuf);
-	}
-
-	if (m_sfd != INVALID_SOCKET)
-	{
-		shutdown(m_sfd,SD_BOTH);
-		closesocket(m_sfd);
-		m_sfd = INVALID_SOCKET;
-	}
-
-    if (enableSSL) {
-        shutdownSSL(ssl);
-        SSL_CTX_free(sslContext);
+    if (m_sfd != INVALID_SOCKET)
+    {
+        ::shutdown(m_sfd, SD_BOTH);
+        ::closesocket(m_sfd);
+        m_sfd = INVALID_SOCKET;
     }
 
-	SocketUninit();
+    if (m_pRecvBuf)
+    {
+        free(m_pRecvBuf);
+    }
+
+    SocketUninit();
 }
 
-int TcpTransport::Connect(const std::string &strServerURL)
+
+int TcpTransport::connect(const std::string& serverAddr, int timeoutMillis)
 {
-	if (m_state == CLIENT_STATE_UNINIT)
-	{
-		return CLIENT_ERROR_INIT;
-	}
-
-	if (IsConnected())
-	{
-		if (strServerURL.compare(m_serverURL) == 0)
-		{
-			return CLIENT_ERROR_SUCCESS;
-		}
-		else
-		{
-			Close();
-		}
-	}
-
-	short port;
-	std::string strAddr;
-
-	if (!SplitURL(strServerURL, strAddr, port))
-	{
-		return CLIENT_ERROR_INVALID_URL;
-	}
-
-	struct sockaddr_in sa;
-	sa.sin_family = AF_INET;
-	sa.sin_port = htons(port);
-
-	sa.sin_addr.s_addr = inet_addr(strAddr.c_str());
-
-    if (enableSSL) {
-        sslContext = initializeSSL();
-        ssl = SSL_new(sslContext);
+    long long endTime = KPRUtil::GetCurrentTimeMillis() + timeoutMillis;
+    if (m_state == CLIENT_STATE_UNINIT)
+    {
+        return CLIENT_ERROR_INIT;
     }
 
-	m_sfd = (int)socket(AF_INET, SOCK_STREAM, 0);
+    if (isConnected())
+    {
+        if (serverAddr.compare(m_serverAddr) == 0)
+        {
+            return CLIENT_ERROR_SUCCESS;
+        }
+        else
+        {
+            close();
+        }
+    }
 
-	if (SetTcpNoDelay(m_sfd) == -1)
-	{
-		closesocket(m_sfd);
-		return CLIENT_ERROR_CONNECT;
-	}
+    short port;
+    std::string strAddr;
 
-	// handshake SSL.
-	if (enableSSL) {
-		SSL_set_fd(ssl, m_sfd);
+    if (!SplitURL(serverAddr, strAddr, port))
+    {
+        return CLIENT_ERROR_INVALID_URL;
+    }
 
-        if (connect(m_sfd, (struct sockaddr*) &sa, sizeof(sockaddr)) == -1) {
-            std::cout << "Unencrypted connection establishment failed" << std::endl;
+    struct sockaddr_in sa;
+    sa.sin_family = AF_INET;
+    sa.sin_port = htons(port);
+
+    sa.sin_addr.s_addr = inet_addr(strAddr.c_str());
+    m_sfd = (int)socket(AF_INET, SOCK_STREAM, 0);
+
+    if (MakeSocketNonblocking(m_sfd) == -1)
+    {
+    	::closesocket(m_sfd);
+        return CLIENT_ERROR_CONNECT;
+    }
+
+    if (SetTcpNoDelay(m_sfd) == -1)
+    {
+        ::closesocket(m_sfd);
+        return CLIENT_ERROR_CONNECT;
+    }
+
+    if (::connect(m_sfd, (struct sockaddr*)&sa, sizeof(sockaddr)) == -1)
+    {
+        int err = NET_ERROR;
+        if (err == WSAEWOULDBLOCK || err == WSAEINPROGRESS)
+        {
+            kpr::Epoller epoller(false);
+            epoller.create(1);
+            epoller.add(m_sfd, 0, EPOLLOUT);
+            int iRetCode = epoller.wait(endTime - KPRUtil::GetCurrentTimeMillis());
+            if (iRetCode <= 0)
+            {
+                ::closesocket(m_sfd);
+                return CLIENT_ERROR_CONNECT;
+            }
+            else if (iRetCode == 0)
+            {
+                ::closesocket(m_sfd);
+                return CLIENT_ERROR_CONNECT;
+            }
+
+            const epoll_event& ev = epoller.get(0);
+            if (ev.events & EPOLLERR || ev.events & EPOLLHUP)
+            {
+                ::closesocket(m_sfd);
+                return CLIENT_ERROR_CONNECT;
+            }
+
+            int opterr = 0;
+            socklen_t errlen = sizeof(opterr);
+            if (getsockopt(m_sfd, SOL_SOCKET, SO_ERROR, &opterr, &errlen) == -1 || opterr)
+            {
+                ::closesocket(m_sfd);
+                return CLIENT_ERROR_CONNECT;
+            }
+        }
+        else
+        {
+            ::closesocket(m_sfd);
             return CLIENT_ERROR_CONNECT;
         }
+    }
 
-		int return_code = 0;
-		if ((return_code = SSL_connect(ssl)) <= 0) {
-			// Log error of SSL connection.
-			ERR_print_errors_fp(stderr);
-			std::cout << "Connect Error Code: " << SSL_get_error(ssl, return_code) << std::endl;
-			return CLIENT_ERROR_CONNECT;
-		} else {
-			show_certificate(ssl);
-		}
-		// Log success of SSL handshake.
-	}
-
-	if (MakeSocketNonblocking(m_sfd) == -1)
-	{
-		return CLIENT_ERROR_CONNECT;
-	}
-	
-	if (!enableSSL && connect(m_sfd,(struct sockaddr*)&sa, sizeof(sockaddr)) == -1)
-	{
-		int err = NET_ERROR;
-		if (err == WSAEWOULDBLOCK || err == WSAEINPROGRESS)
-		{
-			fd_set wfd;
-			fd_set exceptfds;
-
-			FD_ZERO(&wfd);
-			FD_ZERO(&exceptfds);
-			FD_SET(m_sfd,&wfd);
-			FD_SET(m_sfd, &exceptfds);
-
-			struct timeval tv = {5, 0};
-
-			if (select(FD_SETSIZE, NULL, &wfd, &exceptfds, &tv) == -1)
-			{
-				closesocket(m_sfd);
-				return CLIENT_ERROR_CONNECT;
-			}
-
-			if (!FD_ISSET(m_sfd,&wfd))
-			{
-				closesocket(m_sfd);
-				return CLIENT_ERROR_CONNECT;
-			}
-
-#ifndef WIN32
-
-			int opterr = 0;
-			socklen_t errlen = sizeof(opterr);
-			if (getsockopt(m_sfd,SOL_SOCKET, SO_ERROR, &opterr, &errlen) == -1)
-			{
-				closesocket(m_sfd);
-				return CLIENT_ERROR_CONNECT;
-			}
-
-			if (opterr)
-			{
-				closesocket(m_sfd);
-				return CLIENT_ERROR_CONNECT;
-			}
-#endif
-		}
-		else
-		{
-			return CLIENT_ERROR_CONNECT;
-		}
-	}
-
-	m_serverURL = strServerURL;
+    m_serverAddr = serverAddr;
     m_state = CLIENT_STATE_CONNECTED;
-	m_recvBufUsed = 0;
+    m_recvBufUsed = 0;
+    m_lastSendRecvTime = KPRUtil::GetCurrentTimeMillis();
 
-	return CLIENT_ERROR_SUCCESS;
+    return CLIENT_ERROR_SUCCESS;
 }
 
-bool TcpTransport::IsConnected()
+
+bool TcpTransport::isConnected()
 {
-	return m_state == CLIENT_STATE_CONNECTED;
+    return m_state == CLIENT_STATE_CONNECTED;
 }
 
-void TcpTransport::Close()
+void TcpTransport::close()
 {
-	if (m_state == CLIENT_STATE_CONNECTED)
-	{
-		m_state = CLIENT_STATE_DISCONNECT;
-	}
+    if (m_state == CLIENT_STATE_CONNECTED)
+    {
+        m_state = CLIENT_STATE_DISCONNECT;
+    }
 }
 
-int TcpTransport::SendData(const char* pBuffer, size_t len,int timeOut)
+int TcpTransport::sendData(const char* pBuffer, int len, int timeOut)
 {
-	kpr::ScopedLock<kpr::Mutex> lock(m_sendLock);
-	return SendOneMsg(pBuffer,len,timeOut);
+    kpr::ScopedLock<kpr::Mutex> lock(m_sendLock);
+    return sendOneMsg(pBuffer, len, timeOut > 0 ? timeOut : 0);
 }
 
-int TcpTransport::SendOneMsg(const char* pBuffer, size_t len, int nTimeOut)
+int TcpTransport::sendOneMsg(const char* pBuffer, int len, int nTimeOut)
 {
-	int pos = 0;
-	while (len > 0 && m_state == CLIENT_STATE_CONNECTED)
-	{
-		ssize_t ret = 0;
-		if (enableSSL) {
-			ret = SSL_write(ssl, pBuffer + pos, len);
-		} else {
-			ret = send(m_sfd, pBuffer + pos, len, 0);
-		}
+    int pos = 0;
+    long long endTime = KPRUtil::GetCurrentTimeMillis() + nTimeOut;
 
-		if (ret > 0)
-		{
-			len -= ret;
-			pos += ret;
-		}
-		else if (ret == 0)
-		{
-			Close();
-			break;
-		}
-		else
-		{
-			int err = NET_ERROR;
-			if (err == WSAEWOULDBLOCK)
-			{
-				fd_set wfd;
-				FD_ZERO(&wfd);
-				FD_SET(m_sfd, &wfd);
+    while (len > 0 && m_state == CLIENT_STATE_CONNECTED)
+    {
+        int ret = send(m_sfd, pBuffer + pos, len, 0);
+        if (ret > 0)
+        {
+            len -= ret;
+            pos += ret;
+        }
+        else if (ret == 0)
+        {
+            close();
+            break;
+        }
+        else
+        {
+            int err = NET_ERROR;
+            if (err == WSAEWOULDBLOCK || err == EAGAIN)
+            {
+                kpr::Epoller epoller(false);
+                epoller.create(1);
+                epoller.add(m_sfd, 0, EPOLLOUT);
+                int iRetCode = epoller.wait(endTime - KPRUtil::GetCurrentTimeMillis());
+                if (iRetCode <= 0)
+                {
+                    close();
+                    break;
+                }
+                else if (iRetCode == 0)
+                {
+                    close();
+                    break;
+                }
 
-				struct timeval tv = {2, 0};
-				struct timeval* tvp = NULL;
+                const epoll_event& ev = epoller.get(0);
+                if (ev.events & EPOLLERR || ev.events & EPOLLHUP)
+                {
+                    close();
+                    break;
+                }
+            }
+            else
+            {
+                close();
+                break;
+            }
+        }
+    }
+    m_lastSendRecvTime = KPRUtil::GetCurrentTimeMillis();
 
-				if (nTimeOut >0)
-				{
-					tv.tv_sec = nTimeOut / 1000;
-					tv.tv_usec = (nTimeOut % 1000) * 1000;
-				}
-
-				tvp = &tv;
-
-				if (select(m_sfd+1, NULL, &wfd, NULL, tvp) == -1)
-				{
-					Close();
-					break;
-				}
-
-				if (nTimeOut > 0 && !FD_ISSET(m_sfd,&wfd))
-				{
-					Close();
-					break;
-				}
-			}
-			else
-			{
-				Close();
-				break;
-			}
-		}
-	}
-
-	return (len == 0) ? 0 : -1;
+    return (len == 0) ? 0 : -1;
 }
 
-ssize_t TcpTransport::RecvMsg()
+
+int TcpTransport::recvMsg()
 {
-	ssize_t ret = 0;
-	if (enableSSL) {
-		ret = SSL_read(ssl, m_pRecvBuf + m_recvBufUsed, m_recvBufSize - m_recvBufUsed);
-	} else {
-		ret = recv(m_sfd, m_pRecvBuf + m_recvBufUsed, m_recvBufSize - m_recvBufUsed, 0);
-	}
+    int ret = recv(m_sfd, m_pRecvBuf + m_recvBufUsed, m_recvBufSize - m_recvBufUsed, 0);
 
-	if (ret > 0)
-	{
-		m_recvBufUsed += ret;
-	}
-	else if (ret == 0)
-	{
-		Close();
-	}
-	else if (ret == -1)
-	{
-		int err = NET_ERROR;
-		if (err != WSAEWOULDBLOCK)
-		{
-			Close();
-		}
-	}
+    if (ret > 0)
+    {
+        m_recvBufUsed += ret;
+    }
+    else if (ret == 0)
+    {
+        close();
+        ret = -1;
+    }
+    else if (ret < 0)
+    {
+        int err = NET_ERROR;
+        if (err == WSAEWOULDBLOCK || err == EAGAIN || err == EINTR)
+        {
+            ret = 0;
+        }
+        else
+        {
+            close();
+        }
+    }
+    m_lastSendRecvTime = KPRUtil::GetCurrentTimeMillis();
 
-	return ret ;
+    return ret;
 }
 
-bool TcpTransport::ResizeBuf(uint32_t nNewSize)
+bool TcpTransport::resizeBuf(int nNewSize)
 {
-	char * newbuf = (char*)realloc(m_pRecvBuf,nNewSize);
-	if (!newbuf)
-	{
-		return false;
-	}
+    char* newbuf = (char*)realloc(m_pRecvBuf, nNewSize);
+    if (!newbuf)
+    {
+        return false;
+    }
 
-	m_pRecvBuf = newbuf;
-	m_recvBufSize = nNewSize;
+    m_pRecvBuf = newbuf;
+    m_recvBufSize = nNewSize;
 
-	return true;
+    return true;
 }
 
-void TcpTransport::TryShrink(uint32_t MsgLen)
+void TcpTransport::tryShrink(int MsgLen)
 {
-	m_shrinkMax = MsgLen > m_shrinkMax ? MsgLen : m_shrinkMax;
-	if (m_shrinkCheckCnt == 0)
-	{
-		m_shrinkCheckCnt = DEFAULT_SHRINK_COUNT;
-		if (m_recvBufSize > m_shrinkMax)
-		{
-			ResizeBuf(m_shrinkMax);
-		}
-	}
-	else
-	{
-		m_shrinkCheckCnt--;
-	}
+    m_shrinkMax = MsgLen > m_shrinkMax ? MsgLen : m_shrinkMax;
+    if (m_shrinkCheckCnt == 0)
+    {
+        m_shrinkCheckCnt = DEFAULT_SHRINK_COUNT;
+        if (m_recvBufSize > m_shrinkMax)
+        {
+            resizeBuf(m_shrinkMax);
+        }
+    }
+    else
+    {
+        m_shrinkCheckCnt--;
+    }
 }
 
-uint32_t TcpTransport::GetMsgSize(const char * pBuf)
+int TcpTransport::getMsgSize(const char* pBuf)
 {
-	uint32_t len = 0;
-	memcpy(&len, pBuf, sizeof(int));
+    int len = 0;
+    memcpy(&len, pBuf, sizeof(int));
 
-	//由于长度值不包含自身，所以需要+4
-	return ntohl(len)+4;
+    return ntohl(len) + 4;
 }
 
-ssize_t TcpTransport::RecvData(std::list<std::string*>& outDataList)
+int TcpTransport::recvData(std::list<std::string*>& dataList)
 {
-	ssize_t ret = RecvMsg();
-	ProcessData(outDataList);
-	return ret;
+    int ret = recvMsg();
+    processData(dataList);
+    return ret;
 }
 
-void TcpTransport::ProcessData(std::list<std::string*>& outDataList)
+void TcpTransport::processData(std::list<std::string*>& dataList)
 {
-	while (m_recvBufUsed > int(sizeof(int)))
-	{
-		uint32_t msgLen = 0;
-		msgLen = GetMsgSize(m_pRecvBuf);
-		if (msgLen > m_recvBufSize)
-		{
-			if (ResizeBuf(msgLen))
-			{
-				m_shrinkCheckCnt = DEFAULT_SHRINK_COUNT;
-			}
-			break;
-		}
-		else
-		{
-			TryShrink(msgLen);
-		}
+    while (m_recvBufUsed > int(sizeof(int)))
+    {
+        int msgLen = 0;
+        msgLen = getMsgSize(m_pRecvBuf);
+        if (msgLen > m_recvBufSize)
+        {
+            if (resizeBuf(msgLen))
+            {
+                m_shrinkCheckCnt = DEFAULT_SHRINK_COUNT;
+            }
+            break;
+        }
+        else
+        {
+            tryShrink(msgLen);
+        }
 
-		if (m_recvBufUsed >= msgLen)
-		{
-			std::string* data = new std::string;
-			data->assign(m_pRecvBuf,msgLen);
-			outDataList.push_back(data);
-			m_recvBufUsed -= msgLen;
+        if (m_recvBufUsed >= msgLen)
+        {
+            std::string* data = new std::string;
+            data->assign(m_pRecvBuf, msgLen);
+            dataList.push_back(data);
+            m_recvBufUsed -= msgLen;
 
-			memmove(m_pRecvBuf, m_pRecvBuf + msgLen, m_recvBufUsed);
-		}
-		else
-		{
-			break;
-		}
-	}
+            memmove(m_pRecvBuf, m_pRecvBuf + msgLen, m_recvBufUsed);
+        }
+        else
+        {
+            break;
+        }
+    }
 }
 
-SOCKET TcpTransport::GetSocket()
+SOCKET TcpTransport::getSocket()
 {
-	return m_sfd;
+    return m_sfd;
 }
 
-std::string& TcpTransport::GetServerURL()
+std::string& TcpTransport::getServerAddr()
 {
-	return m_serverURL;
+    return m_serverAddr;
+}
+
+unsigned long long TcpTransport::getLastSendRecvTime()
+{
+	return m_lastSendRecvTime;
+}
+
+
 }

@@ -14,43 +14,46 @@
 * limitations under the License.
 */
 
-#if!defined __MESSAGEID_H__
+#ifndef __MESSAGEID_H__
 #define __MESSAGEID_H__
 
 #include "SocketUtil.h"
 
-class MessageId
+namespace rmq
 {
-public:
-	MessageId(sockaddr address, long long offset)
-		: m_address(address),m_offset (offset)
-	{
+    class MessageId
+    {
+    public:
+        MessageId(sockaddr address, long long offset)
+            : m_address(address), m_offset(offset)
+        {
 
-	}
+        }
 
-	sockaddr getAddress()
-	{
-		return m_address;
-	}
+        sockaddr getAddress()
+        {
+            return m_address;
+        }
 
-	void setAddress(sockaddr address)
-	{
-		m_address = address;
-	}
+        void setAddress(sockaddr address)
+        {
+            m_address = address;
+        }
 
-	long long getOffset()
-	{
-		return m_offset;
-	}
+        long long getOffset()
+        {
+            return m_offset;
+        }
 
-	void setOffset(long long offset)
-	{
-		m_offset = offset;
-	}
+        void setOffset(long long offset)
+        {
+            m_offset = offset;
+        }
 
-private:
-	sockaddr m_address;
-	long long m_offset;
-};
+    private:
+        sockaddr m_address;
+        long long m_offset;
+    };
+}
 
 #endif

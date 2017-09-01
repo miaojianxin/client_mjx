@@ -13,57 +13,60 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 */
-#if!defined __NAMESRVCONFIG_H__
+#ifndef __NAMESRVCONFIG_H__
 #define __NAMESRVCONFIG_H__
 
 #include <stdlib.h>
 #include <string>
 
+namespace rmq
+{
 /**
- * Name server 的配置类
+ * Name server Config
  *
  */
 class NamesrvConfig
 {
 public:
-	NamesrvConfig()
-	{
-		m_kvConfigPath="";
+    NamesrvConfig()
+    {
+        m_kvConfigPath = "";
 
-		char* home = getenv(MixAll::ROCKETMQ_HOME_ENV.c_str());
-		if (home)
-		{
-			m_rocketmqHome = home;
-		}
-		else
-		{
-			m_rocketmqHome = "";
-		}
-	}
+        char* home = getenv(MixAll::ROCKETMQ_HOME_ENV.c_str());
+        if (home)
+        {
+            m_rocketmqHome = home;
+        }
+        else
+        {
+            m_rocketmqHome = "";
+        }
+    }
 
-	const std::string& getRocketmqHome()
-	{
-		return m_rocketmqHome;
-	}
-	
-	void setRocketmqHome(const std::string& rocketmqHome)
-	{
-		m_rocketmqHome = rocketmqHome;
-	}
+    const std::string& getRocketmqHome()
+    {
+        return m_rocketmqHome;
+    }
 
-	const std::string& getKvConfigPath()
-	{
-		return m_kvConfigPath;
-	}
-	
-	void setKvConfigPath(const std::string& kvConfigPath)
-	{
-		m_kvConfigPath = kvConfigPath;
-	}
+    void setRocketmqHome(const std::string& rocketmqHome)
+    {
+        m_rocketmqHome = rocketmqHome;
+    }
+
+    const std::string& getKvConfigPath()
+    {
+        return m_kvConfigPath;
+    }
+
+    void setKvConfigPath(const std::string& kvConfigPath)
+    {
+        m_kvConfigPath = kvConfigPath;
+    }
 
 private:
-	std::string m_rocketmqHome;
-	std::string m_kvConfigPath;// 通用的KV配置持久化地址
+    std::string m_rocketmqHome;
+    std::string m_kvConfigPath;
 };
+}
 
 #endif

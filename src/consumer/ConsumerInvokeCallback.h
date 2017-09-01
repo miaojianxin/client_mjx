@@ -14,28 +14,27 @@
 * limitations under the License.
 */
 
-#if!defined __CONSUMER_INVOKECALLBACK_H__
+#ifndef __CONSUMER_INVOKECALLBACK_H__
 #define __CONSUMER_INVOKECALLBACK_H__
 
 #include "InvokeCallback.h"
 
-class PullCallback;
-class MQClientAPIImpl;
-
-/**
-* 异步调用应答回调接口
-*
-*/
-class ConsumerInvokeCallback : public InvokeCallback
+namespace rmq
 {
-public:
-	ConsumerInvokeCallback(PullCallback* pPullCallback,MQClientAPIImpl* pMQClientAPIImpl);
-	virtual ~ConsumerInvokeCallback();
-	virtual void operationComplete(ResponseFuture* pResponseFuture);
+	class PullCallback;
+	class MQClientAPIImpl;
 
-private:
-	PullCallback* m_pPullCallback;
-	MQClientAPIImpl* m_pMQClientAPIImpl;
-};
+	class ConsumerInvokeCallback : public InvokeCallback
+	{
+	public:
+	    ConsumerInvokeCallback(PullCallback* pPullCallback, MQClientAPIImpl* pMQClientAPIImpl);
+	    virtual ~ConsumerInvokeCallback();
+	    virtual void operationComplete(ResponseFuturePtr pResponseFuture);
+
+	private:
+	    PullCallback* m_pPullCallback;
+	    MQClientAPIImpl* m_pMQClientAPIImpl;
+	};
+}
 
 #endif

@@ -14,40 +14,28 @@
 * limitations under the License.
 */
 
-#if!defined __VIRTUALENVUTIL_H__
+#ifndef __VIRTUALENVUTIL_H__
 #define __VIRTUALENVUTIL_H__
 
 #include <string>
 
-/**
-* 虚拟环境相关 API 封装
-*
-* @author manhong.yqd<jodie.yqd@gmail.com>
-* @since 2013-8-26
-*/
-class VirtualEnvUtil
+namespace rmq
 {
-public:
-	/**
-	* 添加虚拟运行环境相关的projectGroupPrefix
-	*
-	* @param origin
-	* @param projectGroup
-	* @return
-	*/
-	static std::string buildWithProjectGroup(const std::string& origin, const std::string& projectGroup);
+    /**
+    * VirtualEnv API
+    *
+    * @author manhong.yqd<jodie.yqd@gmail.com>
+    * @since 2013-8-26
+    */
+    class VirtualEnvUtil
+    {
+    public:
+        static std::string buildWithProjectGroup(const std::string& origin, const std::string& projectGroup);
+        static std::string clearProjectGroup(const std::string& origin, const std::string& projectGroup);
 
-	/**
-	* 清除虚拟运行环境相关的projectGroupPrefix
-	*
-	* @param origin
-	* @param projectGroup
-	* @return
-	*/
-	static std::string clearProjectGroup(const std::string& origin, const std::string& projectGroup);
-
-public:
-	static const char* VIRTUAL_APPGROUP_PREFIX;
-};
+    public:
+        static const char* VIRTUAL_APPGROUP_PREFIX;
+    };
+}
 
 #endif

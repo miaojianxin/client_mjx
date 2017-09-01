@@ -13,58 +13,46 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 */
-#if!defined __OFFSETSTORE_H__
-#define __OFFSETSTORE_H__
+#ifndef __RMQ_OFFSETSTORE_H__
+#define __RMQ_OFFSETSTORE_H__
 
 #include <set>
+#include <map>
+
 #include "RocketMQClient.h"
 
-class MessageQueue;
-
-enum ReadOffsetType
+namespace rmq
 {
-	// 只从Memory读取
-	READ_FROM_MEMORY,
-	// 只从存储层读取（本地或者远端）
-	READ_FROM_STORE,
-	// 先从内存读，内存不存在再从存储层读
-	MEMORY_FIRST_THEN_STORE,
-};
+	class MessageQueue;
 
-/**
-* Consumer Offset存储接口
-*
-*/
-class ROCKETMQCLIENT_API OffsetStore
-{
-public:
-	virtual ~OffsetStore() {}
+	enum ReadOffsetType
+	{
+		READ_FROM_MEMORY,
+		READ_FROM_STORE,
+		MEMORY_FIRST_THEN_STORE,
+	};
 
 	/**
-	* 加载Offset
+	* Consumer Offset Store
+	*
 	*/
-	virtual void load()=0;
+	class OffsetStore
+	{
+	public:
+		virtual ~OffsetStore() {}
 
-	/**
-	* 更新消费进度，存储到内存
-	*/
-	virtual void updateOffset(MessageQueue& mq, long long offset, bool increaseOnly)=0;
+		virtual void load()=0;
 
-	/**
-	* 从本地缓存读取消费进度
-	*/
-	virtual long long readOffset(MessageQueue& mq, ReadOffsetType type)=0;
+		virtual void updateOffset(const MessageQueue& mq, long long offset, bool increaseOnly)=0;
+		virtual long long readOffset(const MessageQueue& mq, ReadOffsetType type)=0;
 
-	/**
-	* 持久化全部消费进度，可能持久化本地或者远端Broker
-	*/
-	virtual void persistAll(std::set<MessageQueue>& mqs)=0;
-	virtual void persist(MessageQueue& mq)=0;
+		virtual void persistAll(std::set<MessageQueue>& mqs)=0;
+		virtual void persist(const MessageQueue& mq)=0;
 
-	/**
-	* 删除不必要的MessageQueue offset
-	*/
-	virtual void removeOffset(MessageQueue& mq)=0;
-};
+		virtual void removeOffset(const MessageQueue& mq)=0;
+
+		virtual std::map<MessageQueue, long long> cloneOffsetTable(const std::string& topic) = 0;
+	};
+}
 
 #endif

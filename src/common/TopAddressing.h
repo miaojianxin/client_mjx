@@ -13,88 +13,42 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 */
-#if!defined __TOPADDRESSING_H__
+#ifndef __TOPADDRESSING_H__
 #define  __TOPADDRESSING_H__
 
 #include <string>
+#include <sstream>
+#include "SocketUtil.h"
 
-extern "C" {
-#include <curl/curl.h>
-}
-
-#include "MixAll.h"
-#include "Logger.h"
-
-class fetch_ns_exception : public std::exception {
-public:
-    virtual const char* what() const throw() {
-        return "Connection time";
-    }
-};
-
-/**
- * Ñ°Ö··þÎñ
- *
- */
-class TopAddressing
+namespace rmq
 {
-public:
-	TopAddressing()
-	{
-	}
-
-	static size_t curl_callback(char* data, size_t size, size_t nmemb, std::string *buffer) {
-		if (buffer != nullptr) {
-			buffer->append(data, size * nmemb);
-			return size * nmemb;
-		}
-		return 0;
-	}
-
-    std::string fetchNSAddr()
+    class TopAddressing
     {
-        std::string ns_domain = MixAll::ROCKETMQ_NAMESRV_DOMAIN;
-        std::string name_server_discovery_end_point = ns_domain.append("/rocketmq/nsaddr");
-        return fetchNameServer(name_server_discovery_end_point, 3000);
-    }
+    public:
+        TopAddressing()
+			: m_nsAddr("")
+        {
+        }
 
-	std::string fetchNameServer(std::string& domain, int timeout) throw (fetch_ns_exception)  {
-		CURL *curl;
-		CURLcode res;
-		std::string result = "";
-		curl = curl_easy_init();
-		curl_easy_setopt(curl, CURLOPT_URL, domain.c_str());
-		curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, curl_callback);
-		curl_easy_setopt(curl, CURLOPT_WRITEDATA, &result);
-		curl_easy_setopt(curl, CURLOPT_TIMEOUT_MS, timeout);
-		curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT_MS, timeout);
+		const std::string& getNsAddr()
+        {
+            return m_nsAddr;
+        }
 
-		res = curl_easy_perform(curl);
-		curl_easy_cleanup(curl);
+		void setNsAddr(std::string& nsAddr)
+        {
+           	m_nsAddr = nsAddr;
+        }
 
-		if (res != CURLE_OK) {
-			const char* errMsg = curl_easy_strerror(res);
-			Logger::get_logger()->error(errMsg);
-			fetch_ns_exception e;
-			throw e;
-		}
-		return result;
-	}
+        std::string fetchNSAddr()
+        {
 
+            return "";
+        }
 
-	const std::string& getNsAddr()
-	{
-		return m_nsAddr;
-	}
-
-
-	void setNsAddr(const std::string& nsAddr)
-	{
-		m_nsAddr = nsAddr;
-	}
-
-private:
-	std::string m_nsAddr;
-};
+    private:
+		std::string m_nsAddr;
+    };
+}
 
 #endif

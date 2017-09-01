@@ -17,11 +17,14 @@
 #include "RebalanceService.h"
 #include "MQClientFactory.h"
 
+namespace rmq
+{
+
 long RebalanceService::s_WaitInterval = 1000 * 10;
 
 RebalanceService::RebalanceService(MQClientFactory* pMQClientFactory)
-	:ServiceThread("RebalanceService"),
-	 m_pMQClientFactory(pMQClientFactory)
+    : ServiceThread("RebalanceService"),
+      m_pMQClientFactory(pMQClientFactory)
 {
 }
 
@@ -33,15 +36,20 @@ RebalanceService::~RebalanceService()
 
 void RebalanceService::Run()
 {
-	while (!m_stoped)
-	{
-		waitForRunning(s_WaitInterval);
-		m_pMQClientFactory->doRebalance();
-	}
+	RMQ_INFO("%s service started", getServiceName().c_str());
+
+    while (!m_stoped)
+    {
+        waitForRunning(s_WaitInterval);
+        m_pMQClientFactory->doRebalance();
+    }
+
+    RMQ_INFO("%s service end", getServiceName().c_str());
 }
 
 std::string RebalanceService::getServiceName()
 {
-	return "RebalanceService";
+    return "RebalanceService";
 }
 
+}

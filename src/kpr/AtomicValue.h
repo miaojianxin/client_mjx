@@ -13,210 +13,188 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#if!defined __KPR_ATOMICVALUE_H__
+#ifndef __KPR_ATOMICVALUE_H__
 #define __KPR_ATOMICVALUE_H__
 
 #include "KPRTypes.h"
 
-#ifdef WIN32
-
-//  InterlockedExchangeAdd
-long MyInterlockedExchangeAdd(long volatile* addend,long value);
-long long MyInterlockedExchangeAdd(long long volatile* addend,long long value);
-
-// InterlockedIncrement
-long MyInterlockedIncrement(long volatile* addend);
-long long MyInterlockedIncrement(long long volatile* addend);
-
-// InterlockedDecrement
-long MyInterlockedDecrement(long volatile* addend);
-long long MyInterlockedDecrement(long long volatile* addend);
-
-// InterlockedExchange
-long MyInterlockedExchange(long volatile* target,long value);
-long long MyInterlockedExchange(long long volatile* target,long long value);
-
-//InterlockedCompareExchange
-long MyInterlockedCompareExchange(long volatile* destination,
-									long exchange,
-									long comparand);
-long long MyInterlockedCompareExchange(long long volatile* destination,
-									long long exchange,
-									long long comparand);
-
+namespace kpr
+{
 
 template <class T>
 class AtomicValue
 {
 public:
-	AtomicValue(T init=0) : value(init) {}
-
-	AtomicValue<T>& operator=(T newValue)
+	AtomicValue()
+		: value(0)
 	{
-		Set(newValue);
-		return *this;
-	}
-	
-	AtomicValue<T>& operator=(const AtomicValue<T>& v)
-	{
-		Set(v.Get());
-		return *this;
 	}
 
-	inline T operator+=(T n)
+    AtomicValue(T init)
+		: value(init)
 	{
-		return MyInterlockedExchangeAdd(&value,n)+n;
 	}
 
-	inline T operator-=(T n)
-	{
-		return MyInterlockedExchangeAdd(&value,-1*n)-n;
-	}
+    AtomicValue<T>& operator=(T newValue)
+    {
+        set(newValue);
+        return *this;
+    }
 
-	inline T operator++()
-	{
-		return MyInterlockedIncrement((T*)&value);
-	}
+    AtomicValue<T>& operator=(const AtomicValue<T>& v)
+    {
+        set(v.get());
 
-	inline T operator--()
-	{
-		return MyInterlockedDecrement((T*)&value);
-	}
+        return *this;
+    }
 
-	inline T fetchAndAdd(T n)
-	{
-		return MyInterlockedExchangeAdd((T*)&value,n);
-	}
+    inline T operator+=(T n)
+    {
+        return __sync_add_and_fetch(&value, n);
+    }
 
-	inline T fetchAndSub(T n)
-	{
-		return MyInterlockedExchangeAdd((T*)&value,-1*n);
-	}
+    inline T operator-=(T n)
+    {
+        return __sync_sub_and_fetch(&value, n);
+    }
 
-	inline T CompareAndSet(T comparand,T exchange)
-	{
-		return MyInterlockedCompareExchange((T*)&value, exchange, comparand);
-	}
+    inline T operator++()
+    {
+        return *this += 1;
+    }
 
-	inline T operator++(int)
-	{
-		return fetchAndAdd(1);
-	}
+    inline T operator--()
+    {
+        return *this -= 1;
+    }
 
-	inline T operator--(int)
-	{
-		return fetchAndSub(1);
-	}
+    inline T fetchAndAdd(T n)
+    {
+        return __sync_fetch_and_add(&value, n);
+    }
 
-	operator T () const
-	{
-		return Get();
-	}
+    inline T fetchAndSub(T n)
+    {
+        return __sync_fetch_and_sub(&value, n);
+    }
 
-	T Get() const
-	{
-		return const_cast<AtomicValue<T>*>(this)->fetchAndAdd(static_cast<T>(0));
-	}
+    inline T operator++(int)
+    {
+        return fetchAndAdd(1);
+    }
 
-	void Set(T n)
-	{
-		MyInterlockedExchange((T*)&value,n);
-	}
+    inline T operator--(int)
+    {
+        return fetchAndSub(1);
+    }
+
+    operator T() const
+    {
+        return get();
+    }
+
+    T get() const
+    {
+        return const_cast<AtomicValue<T>*>(this)->fetchAndAdd(static_cast<T>(0));
+    }
+
+    void set(T n)
+    {
+        __sync_lock_test_and_set((T*)&value, n);
+    }
+
+    inline T getAndSet(T comparand, T exchange)
+    {
+        return __sync_val_compare_and_swap((T*)&value, comparand, exchange);
+    }
+
+	inline bool compareAndSet(T comparand, T exchange)
+    {
+        return __sync_bool_compare_and_swap((T*)&value, comparand, exchange);
+    }
 
 private:
-	T value;
+    volatile T value;
 };
 
-typedef AtomicValue<long> AtomicInteger;
+
+template <class T>
+class AtomicReference
+{
+public:
+	AtomicReference() : value(NULL) {}
+    AtomicReference(T* init) : value(init) {}
+
+    AtomicReference<T>& operator=(T* newValue)
+    {
+        set(newValue);
+        return *this;
+    }
+
+    AtomicReference<T>& operator=(const AtomicReference<T>& v)
+    {
+        set(v.get());
+
+        return *this;
+    }
+
+	T* operator->() const
+    {
+        return get();
+    }
+
+    T& operator*()
+    {
+        return *get();
+    }
+
+    operator T*() const
+    {
+        return get();
+    }
+
+    T* get() const
+    {
+		if (value == NULL)
+		{
+			return NULL;
+		}
+		else
+		{
+        	return (T*)(__sync_fetch_and_add((uintptr_t*)&value, 0));
+		}
+    }
+
+    void set(T* n)
+    {
+		if (value == NULL)
+		{
+			value = n;
+		}
+		else
+		{
+			__sync_lock_test_and_set((uintptr_t*)&value, n);
+		}
+    }
+
+    inline T getAndSet(T* comparand, T* exchange)
+    {
+        return __sync_val_compare_and_swap((uintptr_t*)&value, comparand, exchange);
+    }
+
+	inline bool compareAndSet(T* comparand, T* exchange)
+    {
+        return __sync_bool_compare_and_swap((uintptr_t*)&value, comparand, exchange);
+    }
+
+private:
+    volatile T* value;
+};
+
+
+typedef AtomicValue<bool> AtomicBoolean;
+typedef AtomicValue<int> AtomicInteger;
 typedef AtomicValue<long long> AtomicLong;
 
-#else
-template <class T>
-class AtomicValue
-{
-public:
-	AtomicValue(T init=0) : value(init) {}
-
-	AtomicValue<T>& operator=(T newValue)
-	{
-		Set(newValue);
-		return *this;
-	}
-
-	AtomicValue<T>& operator=(const AtomicValue<T>& v)
-	{
-		Set(v.Get());
-
-		return *this;
-	}
-
-	inline T operator+=(T n)
-	{
-		return __sync_add_and_fetch(&value, n);
-	}
-
-	inline T operator-=(T n)
-	{
-		return __sync_sub_and_fetch(&value, n);
-	}
-
-	inline T operator++()
-	{
-		return *this += 1;
-	}
-
-	inline T operator--()
-	{
-		return *this -= 1;
-	}
-
-	inline T fetchAndAdd(T n)
-	{
-		return __sync_fetch_and_add(&value, n);
-	}
-
-	inline T fetchAndSub(T n)
-	{
-		return __sync_fetch_and_sub(&value, n);
-	}
-
-	inline T operator++(int)
-	{
-		return fetchAndAdd(1);
-	}
-
-	inline T operator--(int)
-	{
-		return fetchAndSub(1);
-	}
-
-	operator T () const
-	{
-		return Get();
-	}
-
-	T Get() const
-	{
-		return const_cast<AtomicValue<T>*>(this)->fetchAndAdd(static_cast<T>(0));
-	}
-
-	void Set(T n)
-	{
-		__sync_lock_test_and_set((T*)&value,n);
-	}
-
-	inline T CompareAndSet(T comparand,T exchange)
-	{
-		return __sync_val_compare_and_swap((T*)&value, comparand, exchange);
-	}
-
-private:
-	T value;
-};
-
-typedef AtomicValue<int> AtomicInteger;
-typedef AtomicValue<long> AtomicLong;
-
-#endif
-
+}
 #endif

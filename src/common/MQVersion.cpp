@@ -16,80 +16,73 @@
 
 #include "MQVersion.h"
 
-// TODO 每次发布版本都要修改此处版本号
-int MQVersion::s_CurrentVersion = MQVersion::V3_0_2;
+namespace rmq
+{
+
+int MQVersion::s_CurrentVersion = MQVersion::V3_2_6;
 
 const char* MQVersion::getVersionDesc(int value)
 {
-	switch(value)
-	{
-	//V3_0_0_ALPHA1,
-	//V3_0_0_BETA1,
-	//V3_0_0_BETA2,
-	//V3_0_0_BETA3,
-	//V3_0_0_BETA4,
-	//V3_0_0_BETA5,
-	//V3_0_0_BETA6_SNAPSHOT,
-	//V3_0_0_BETA6,
-	//V3_0_0_BETA7_SNAPSHOT,
-	//V3_0_0_BETA7,
-	//V3_0_0_BETA8_SNAPSHOT,
-	//V3_0_0_BETA8,
-	case V3_0_0_BETA9_SNAPSHOT:
-		return "V3_0_0_BETA9_SNAPSHOT";
+    switch (value)
+    {
+        case V3_0_0_BETA9_SNAPSHOT:
+            return "V3_0_0_BETA9_SNAPSHOT";
+        case V3_0_0_BETA9:
+            return "V3_0_0_BETA9";
+        case V3_0_0_FINAL:
+            return "V3_0_0_FINAL";
+        case V3_0_1_SNAPSHOT:
+            return "V3_0_1_SNAPSHOT";
+        case V3_0_1:
+            return "V3_0_1";
+        case V3_0_2_SNAPSHOT:
+            return "V3_0_2_SNAPSHOT";
+        case V3_0_2:
+            return "V3_0_2";
+        case V3_0_3:
+            return "V3_0_3";
+        case V3_0_4_SNAPSHOT:
+            return "V3_0_4_SNAPSHOT";
+        case V3_0_4:
+            return "V3_0_4";
+        case V3_0_5_SNAPSHOT:
+            return "V3_0_5_SNAPSHOT";
+        case V3_0_5:
+            return "V3_0_5";
+        case V3_0_6_SNAPSHOT:
+            return "V3_0_6_SNAPSHOT";
+        case V3_0_6:
+            return "V3_0_6";
+        case V3_0_7_SNAPSHOT:
+            return "V3_0_7_SNAPSHOT";
+        case V3_0_7:
+            return "V3_0_7";
 
-	case V3_0_0_BETA9:
-		return "V3_0_0_BETA9";
+		case V3_2_6_SNAPSHOT:
+            return "V3_2_6_SNAPSHOT";
+        case V3_2_6:
+            return "V3_2_6";
+		case V3_2_7_SNAPSHOT:
+            return "V3_2_7_SNAPSHOT";
+        case V3_2_7:
+            return "V3_2_7";
+		case V3_2_8_SNAPSHOT:
+            return "V3_2_8_SNAPSHOT";
+        case V3_2_8:
+            return "V3_2_8";
+		case V3_5_8_SNAPSHOT:
+            return "V3_5_8_SNAPSHOT";
+        case V3_5_8:
+            return "V3_5_8";
+    }
 
-	case V3_0_0_FINAL:
-		return "V3_0_0_FINAL";
-
-	case V3_0_1_SNAPSHOT:
-		return "V3_0_1_SNAPSHOT";
-
-	case V3_0_1:
-		return "V3_0_1";
-
-	case V3_0_2_SNAPSHOT:
-		return "V3_0_2_SNAPSHOT";
-
-	case V3_0_2:
-		return "V3_0_2";
-
-	case V3_0_3:
-		return "V3_0_3";
-
-	case V3_0_4_SNAPSHOT:
-		return "V3_0_4_SNAPSHOT";
-
-	case V3_0_4:
-		return "V3_0_4";
-
-	case V3_0_5_SNAPSHOT:
-		return "V3_0_5_SNAPSHOT";
-
-	case V3_0_5:
-		return "V3_0_5";
-
-	case V3_0_6_SNAPSHOT:
-		return "V3_0_6_SNAPSHOT";
-
-	case V3_0_6:
-		return "V3_0_6";
-
-	case V3_0_7_SNAPSHOT:
-		return "V3_0_7_SNAPSHOT";
-
-	case V3_0_7:
-		return "V3_0_7";
-	}
-
-	return "";
+    return "";
 }
 
 
 MQVersion::Version MQVersion::value2Version(int value)
 {
-	return (MQVersion::Version)value;
+    return (MQVersion::Version)value;
 }
 
+}

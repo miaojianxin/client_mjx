@@ -14,150 +14,141 @@
 * limitations under the License.
 */
 
-#if!defined __DEFAULTMQPULLCONSUMER_H__
-#define __DEFAULTMQPULLCONSUMER_H__
+#ifndef __RMQ_DEFAULTMQPULLCONSUMER_H__
+#define __RMQ_DEFAULTMQPULLCONSUMER_H__
 
 #include <list>
 #include <string>
 
+#include "RocketMQClient.h"
+#include "MQClientException.h"
 #include "MessageQueue.h"
 #include "MessageExt.h"
 #include "ClientConfig.h"
 #include "MQPullConsumer.h"
-#include "RocketMQClient.h"
 
-class OffsetStore;
-class DefaultMQPullConsumerImpl;
-class AllocateMessageQueueStrategy;
-
-/**
-* 消费者，主动拉取方式消费
-*
-*/
-class ROCKETMQCLIENT_API DefaultMQPullConsumer : public ClientConfig , public MQPullConsumer
+namespace rmq
 {
-public:
-	DefaultMQPullConsumer();
-	DefaultMQPullConsumer(const std::string& consumerGroup);
-	~DefaultMQPullConsumer();
-
-	//MQAdmin
-	void createTopic(const std::string& key, const std::string& newTopic, int queueNum);
-	long long searchOffset(const MessageQueue& mq, long long timestamp);
-	long long maxOffset(const MessageQueue& mq);
-	long long minOffset(const MessageQueue& mq);
-	long long earliestMsgStoreTime(const MessageQueue& mq);
-	MessageExt viewMessage(const std::string& msgId);
-	QueryResult queryMessage(const std::string& topic,
-							 const std::string&  key,
-							 int maxNum,
-							 long long begin,
-							 long long end);
-	// MQadmin end
-
-	AllocateMessageQueueStrategy* getAllocateMessageQueueStrategy();
-	void setAllocateMessageQueueStrategy(AllocateMessageQueueStrategy* pAllocateMessageQueueStrategy);
-	int getBrokerSuspendMaxTimeMillis() ;
-	void setBrokerSuspendMaxTimeMillis(int brokerSuspendMaxTimeMillis);
-	std::string getConsumerGroup();
-	void setConsumerGroup(const std::string& consumerGroup);
-	int getConsumerPullTimeoutMillis();
-	void setConsumerPullTimeoutMillis(int consumerPullTimeoutMillis);
-	int getConsumerTimeoutMillisWhenSuspend() ;
-	void setConsumerTimeoutMillisWhenSuspend(int consumerTimeoutMillisWhenSuspend);
-	MessageModel getMessageModel();
-	void setMessageModel(MessageModel messageModel);
-	MessageQueueListener* getMessageQueueListener();
-	void setMessageQueueListener(MessageQueueListener* pMessageQueueListener);
-	std::set<std::string> getRegisterTopics();
-	void setRegisterTopics( std::set<std::string> registerTopics);
-	//MQConsumer
-	void sendMessageBack(MessageExt& msg, int delayLevel);
-	std::set<MessageQueue>* fetchSubscribeMessageQueues(const std::string& topic);
-	void start();
-	void shutdown() ;
-	//MQConsumer end
-
-	//MQPullConsumer
-	void registerMessageQueueListener(const std::string& topic, MessageQueueListener* pListener);
-	PullResult* pull(MessageQueue& mq, const std::string& subExpression, long long offset,int maxNums);
-	void pull(MessageQueue& mq,
-		const std::string& subExpression,
-		long long offset,
-		int maxNums,
-		PullCallback* pPullCallback);
-
-	PullResult* pullBlockIfNotFound(MessageQueue& mq,
-		const std::string& subExpression,
-		long long offset,
-		int maxNums);
-
-	void pullBlockIfNotFound(MessageQueue& mq,
-							 const std::string& subExpression,
-							 long long offset,
-							 int maxNums,
-							 PullCallback* pPullCallback);
-
-	void updateConsumeOffset(MessageQueue& mq, long long offset);
-
-	long long fetchConsumeOffset(MessageQueue& mq, bool fromStore);
-
-	std::set<MessageQueue*> fetchMessageQueuesInBalance(const std::string& topic);
-	//MQPullConsumer end
-
-	OffsetStore* getOffsetStore();
-	void setOffsetStore(OffsetStore* offsetStore);
-
-	DefaultMQPullConsumerImpl* getDefaultMQPullConsumerImpl();
-
-protected:
-	DefaultMQPullConsumerImpl* m_pDefaultMQPullConsumerImpl;
-
-private:
-	/**
-	* 做同样事情的Consumer归为同一个Group，应用必须设置，并保证命名唯一
-	*/
-	std::string m_consumerGroup;
+	class OffsetStore;
+	class DefaultMQPullConsumerImpl;
+	class AllocateMessageQueueStrategy;
 
 	/**
-	* 长轮询模式，Consumer连接在Broker挂起最长时间，不建议修改
+	* Pull Consumer
+	*
 	*/
-	int m_brokerSuspendMaxTimeMillis ;
+	class DefaultMQPullConsumer : public ClientConfig , public MQPullConsumer
+	{
+	public:
+		DefaultMQPullConsumer();
+		DefaultMQPullConsumer(const std::string& consumerGroup);
+		~DefaultMQPullConsumer();
 
-	/**
-	* 长轮询模式，Consumer超时时间（必须要大于brokerSuspendMaxTimeMillis），不建议修改
-	*/
-	int m_consumerTimeoutMillisWhenSuspend;
+		//MQAdmin
+		void createTopic(const std::string& key, const std::string& newTopic, int queueNum);
+		long long searchOffset(const MessageQueue& mq, long long timestamp);
+		long long maxOffset(const MessageQueue& mq);
+		long long minOffset(const MessageQueue& mq);
+		long long earliestMsgStoreTime(const MessageQueue& mq);
+		MessageExt* viewMessage(const std::string& msgId);
+		QueryResult queryMessage(const std::string& topic,
+								 const std::string&  key,
+								 int maxNum,
+								 long long begin,
+								 long long end);
+		// MQadmin end
 
-	/**
-	* 非阻塞拉模式，Consumer超时时间，不建议修改
-	*/
-	int m_consumerPullTimeoutMillis;
+		AllocateMessageQueueStrategy* getAllocateMessageQueueStrategy();
+		void setAllocateMessageQueueStrategy(AllocateMessageQueueStrategy* pAllocateMessageQueueStrategy);
+		int getBrokerSuspendMaxTimeMillis() ;
+		void setBrokerSuspendMaxTimeMillis(int brokerSuspendMaxTimeMillis);
+		std::string getConsumerGroup();
+		void setConsumerGroup(const std::string& consumerGroup);
+		int getConsumerPullTimeoutMillis();
+		void setConsumerPullTimeoutMillis(int consumerPullTimeoutMillis);
+		int getConsumerTimeoutMillisWhenSuspend() ;
+		void setConsumerTimeoutMillisWhenSuspend(int consumerTimeoutMillisWhenSuspend);
+		MessageModel getMessageModel();
+		void setMessageModel(MessageModel messageModel);
+		MessageQueueListener* getMessageQueueListener();
+		void setMessageQueueListener(MessageQueueListener* pMessageQueueListener);
+		std::set<std::string> getRegisterTopics();
+		void setRegisterTopics( std::set<std::string> registerTopics);
 
-	/**
-	* 集群消费/广播消费
-	*/
-	MessageModel m_messageModel;
+		//MQConsumer
+		void sendMessageBack(MessageExt& msg, int delayLevel);
+		void sendMessageBack(MessageExt& msg, int delayLevel, const std::string& brokerName);
+		std::set<MessageQueue>* fetchSubscribeMessageQueues(const std::string& topic);
+		void start();
+		void shutdown() ;
+		//MQConsumer end
 
-	/**
-	* 队列变化监听器
-	*/
-	MessageQueueListener* m_pMessageQueueListener;
+		//MQPullConsumer
+		void registerMessageQueueListener(const std::string& topic, MessageQueueListener* pListener);
+		PullResult* pull(MessageQueue& mq, const std::string& subExpression, long long offset,int maxNums);
+		void pull(MessageQueue& mq,
+			const std::string& subExpression,
+			long long offset,
+			int maxNums,
+			PullCallback* pPullCallback);
 
-	/**
-	* Offset存储，系统会根据客户端配置自动创建相应的实现，如果应用配置了，则以应用配置的为主
-	*/
-	OffsetStore* m_pOffsetStore;
+		PullResult* pullBlockIfNotFound(MessageQueue& mq,
+			const std::string& subExpression,
+			long long offset,
+			int maxNums);
 
-	/**
-	* 需要监听哪些Topic的队列变化
-	*/
-	std::set<std::string> m_registerTopics;
+		void pullBlockIfNotFound(MessageQueue& mq,
+								 const std::string& subExpression,
+								 long long offset,
+								 int maxNums,
+								 PullCallback* pPullCallback);
 
-	/**
-	* 队列分配算法，应用可重写
-	*/
-	AllocateMessageQueueStrategy* m_pAllocateMessageQueueStrategy;
-};
+		void updateConsumeOffset(MessageQueue& mq, long long offset);
+
+		long long fetchConsumeOffset(MessageQueue& mq, bool fromStore);
+
+		std::set<MessageQueue>* fetchMessageQueuesInBalance(const std::string& topic);
+		//MQPullConsumer end
+
+		OffsetStore* getOffsetStore();
+		void setOffsetStore(OffsetStore* offsetStore);
+
+		DefaultMQPullConsumerImpl* getDefaultMQPullConsumerImpl();
+
+		bool isUnitMode();
+		void setUnitMode(bool isUnitMode);
+
+		int getMaxReconsumeTimes();
+		void setMaxReconsumeTimes(int maxReconsumeTimes);
+
+	protected:
+		DefaultMQPullConsumerImpl* m_pDefaultMQPullConsumerImpl;
+
+	private:
+		std::string m_consumerGroup;
+		int m_brokerSuspendMaxTimeMillis ;
+
+		int m_consumerTimeoutMillisWhenSuspend;
+		int m_consumerPullTimeoutMillis;
+
+		MessageModel m_messageModel;
+		MessageQueueListener* m_pMessageQueueListener;
+
+		OffsetStore* m_pOffsetStore;
+
+		std::set<std::string> m_registerTopics;
+		AllocateMessageQueueStrategy* m_pAllocateMessageQueueStrategy;
+
+		/**
+	     * Whether the unit of subscription group
+	     */
+	    bool m_unitMode;
+
+		/**
+		 * max retry times，default is 15
+		 */
+	    int m_maxReconsumeTimes;
+	};
+}
 
 #endif

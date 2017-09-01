@@ -22,51 +22,58 @@
 #include "OffsetStore.h"
 #include "DefaultMQPullConsumer.h"
 
+namespace rmq
+{
+
 RebalancePullImpl::RebalancePullImpl(DefaultMQPullConsumerImpl* pDefaultMQPullConsumerImpl)
-	:RebalanceImpl("",BROADCASTING,NULL,NULL),
-	m_pDefaultMQPullConsumerImpl(pDefaultMQPullConsumerImpl)
+    : RebalanceImpl("", BROADCASTING, NULL, NULL),
+      m_pDefaultMQPullConsumerImpl(pDefaultMQPullConsumerImpl)
 {
 }
 
 RebalancePullImpl::RebalancePullImpl(const std::string& consumerGroup,
-	MessageModel messageModel,
-	AllocateMessageQueueStrategy* pAllocateMessageQueueStrategy,
-	MQClientFactory* pMQClientFactory,
-	DefaultMQPullConsumerImpl* pDefaultMQPullConsumerImpl)
-	:RebalanceImpl(consumerGroup, messageModel, pAllocateMessageQueueStrategy, pMQClientFactory),
-	m_pDefaultMQPullConsumerImpl(pDefaultMQPullConsumerImpl)
+                                     MessageModel messageModel,
+                                     AllocateMessageQueueStrategy* pAllocateMessageQueueStrategy,
+                                     MQClientFactory* pMQClientFactory,
+                                     DefaultMQPullConsumerImpl* pDefaultMQPullConsumerImpl)
+    : RebalanceImpl(consumerGroup, messageModel, pAllocateMessageQueueStrategy, pMQClientFactory),
+      m_pDefaultMQPullConsumerImpl(pDefaultMQPullConsumerImpl)
 {
 }
 
 long long RebalancePullImpl::computePullFromWhere(MessageQueue& mq)
 {
-	return 0;
+    return 0;
 }
 
 void RebalancePullImpl::dispatchPullRequest(std::list<PullRequest*>& pullRequestList)
 {
 }
 
-void RebalancePullImpl::messageQueueChanged(const std::string& topic, 
-	std::set<MessageQueue>& mqAll, 
-	std::set<MessageQueue>& mqDivided)
+void RebalancePullImpl::messageQueueChanged(const std::string& topic,
+        std::set<MessageQueue>& mqAll,
+        std::set<MessageQueue>& mqDivided)
 {
-	MessageQueueListener* messageQueueListener =
-		m_pDefaultMQPullConsumerImpl->getDefaultMQPullConsumer()->getMessageQueueListener();
-	if (messageQueueListener != NULL)
-	{
-		try
-		{
-			messageQueueListener->messageQueueChanged(topic, mqAll, mqDivided);
-		}
-		catch (...)
-		{
-		}
-	}
+    MessageQueueListener* messageQueueListener =
+        m_pDefaultMQPullConsumerImpl->getDefaultMQPullConsumer()->getMessageQueueListener();
+    if (messageQueueListener != NULL)
+    {
+        try
+        {
+            messageQueueListener->messageQueueChanged(topic, mqAll, mqDivided);
+        }
+        catch (...)
+        {
+            RMQ_ERROR("messageQueueChanged exception, %s", topic.c_str());
+        }
+    }
 }
 
-void RebalancePullImpl::removeUnnecessaryMessageQueue(MessageQueue& mq, ProcessQueue& pq)
+bool RebalancePullImpl::removeUnnecessaryMessageQueue(MessageQueue& mq, ProcessQueue& pq)
 {
-	m_pDefaultMQPullConsumerImpl->getOffsetStore()->persist(mq);
-	m_pDefaultMQPullConsumerImpl->getOffsetStore()->removeOffset(mq);
+    m_pDefaultMQPullConsumerImpl->getOffsetStore()->persist(mq);
+    m_pDefaultMQPullConsumerImpl->getOffsetStore()->removeOffset(mq);
+    return true;
+}
+
 }

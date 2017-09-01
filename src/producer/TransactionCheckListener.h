@@ -13,20 +13,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#if!defined __TRANSACTIONCHECKLISTENER_H__
+#ifndef __TRANSACTIONCHECKLISTENER_H__
 #define __TRANSACTIONCHECKLISTENER_H__
 
 #include "SendResult.h"
 
-/**
- * 服务器回调Producer，检查本地事务分支成功还是失败
- *
- */
-class TransactionCheckListener
+namespace rmq
 {
-public:
-	virtual ~TransactionCheckListener() {}
-	virtual LocalTransactionState checkLocalTransactionState(MessageExt* pMsg)=0;
-};
+	class TransactionCheckListener
+	{
+	public:
+	    virtual ~TransactionCheckListener() {}
+	    virtual LocalTransactionState checkLocalTransactionState(MessageExt* pMsg) = 0;
+	};
+}
 
 #endif

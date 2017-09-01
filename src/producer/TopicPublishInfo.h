@@ -14,96 +14,128 @@
 * limitations under the License.
 */
 
-#if!defined __TOPICPUBLISHINFO_H__
+#ifndef __TOPICPUBLISHINFO_H__
 #define __TOPICPUBLISHINFO_H__
 
 #include <list>
 #include <vector>
 #include <string>
+#include <sstream>
 #include <math.h>
 #include <stdlib.h>
+
+#include "RocketMQClient.h"
+#include "RefHandle.h"
 #include "MessageQueue.h"
 #include "AtomicValue.h"
+#include "UtilAll.h"
 
-/**
-* 发布Topic用到的路由信息
-*
-*/
-class TopicPublishInfo
+
+namespace rmq
 {
-public:
-	TopicPublishInfo()
-	{
-		m_orderTopic = false;
-	}
+    class TopicPublishInfo : public kpr::RefCount
+    {
+    public:
+        TopicPublishInfo()
+        {
+            m_orderTopic = false;
+			m_haveTopicRouterInfo = false;
+        }
 
-	bool isOrderTopic()
-	{
-		return m_orderTopic;
-	}
+        ~TopicPublishInfo()
+        {
+            m_messageQueueList.clear();
+        }
 
-	bool ok()
-	{
-		return !m_messageQueueList.empty();
-	}
+        bool isOrderTopic()
+        {
+            return m_orderTopic;
+        }
 
-	void setOrderTopic(bool orderTopic)
-	{
-		m_orderTopic = orderTopic;
-	}
+        bool ok()
+        {
+            return !m_messageQueueList.empty();
+        }
 
-	std::vector<MessageQueue*>& getMessageQueueList()
-	{
-		return m_messageQueueList;
-	}
+        void setOrderTopic(bool orderTopic)
+        {
+            m_orderTopic = orderTopic;
+        }
 
-	void setMessageQueueList(const std::vector<MessageQueue*>& messageQueueList)
-	{
-		m_messageQueueList = messageQueueList;
-	}
+        std::vector<MessageQueue>& getMessageQueueList()
+        {
+            return m_messageQueueList;
+        }
 
-	AtomicInteger& getSendWhichQueue()
-	{
-		return m_sendWhichQueue;
-	}
+        void setMessageQueueList(const std::vector<MessageQueue>& messageQueueList)
+        {
+            m_messageQueueList = messageQueueList;
+        }
 
-	void setSendWhichQueue(AtomicInteger& sendWhichQueue)
-	{
-		m_sendWhichQueue = sendWhichQueue;
-	}
+        kpr::AtomicInteger& getSendWhichQueue()
+        {
+            return m_sendWhichQueue;
+        }
 
-	/**
-	* 如果lastBrokerName不为null，则寻找与其不同的MessageQueue
-	*/
-	MessageQueue* selectOneMessageQueue(const std::string lastBrokerName)
-	{
-		if (!lastBrokerName.empty())
+        void setSendWhichQueue(kpr::AtomicInteger& sendWhichQueue)
+        {
+            m_sendWhichQueue = sendWhichQueue;
+        }
+
+		bool isHaveTopicRouterInfo()
 		{
-			int index = m_sendWhichQueue++;
-			for (size_t i = 0; i < m_messageQueueList.size(); i++)
-			{
-				int pos = abs(index++) % m_messageQueueList.size();
-				MessageQueue* mq = m_messageQueueList.at(pos);
-				if (mq->getBrokerName()!=lastBrokerName)
-				{
-					return mq;
-				}
-			}
+        	return m_haveTopicRouterInfo;
+	    }
 
-			return NULL;
-		}
-		else
+
+	    void setHaveTopicRouterInfo(bool haveTopicRouterInfo)
 		{
-			int index = m_sendWhichQueue++;
-			int pos = abs(index) % m_messageQueueList.size();
-			return m_messageQueueList.at(pos);
-		}
-	}
+	        m_haveTopicRouterInfo = haveTopicRouterInfo;
+	    }
 
-private:
-	bool m_orderTopic;
-	std::vector<MessageQueue*> m_messageQueueList;
-	AtomicInteger m_sendWhichQueue;
-};
+        MessageQueue* selectOneMessageQueue(const std::string lastBrokerName)
+        {
+            if (!lastBrokerName.empty())
+            {
+                int index = m_sendWhichQueue++;
+                for (size_t i = 0; i < m_messageQueueList.size(); i++)
+                {
+                    int pos = abs(index++) % m_messageQueueList.size();
+                    MessageQueue& mq = m_messageQueueList.at(pos);
+                    if (mq.getBrokerName() != lastBrokerName)
+                    {
+                        return &mq;
+                    }
+                }
+
+                return NULL;
+            }
+            else
+            {
+                int index = m_sendWhichQueue++;
+                int pos = abs(index) % m_messageQueueList.size();
+                return &(m_messageQueueList.at(pos));
+            }
+        }
+
+		std::string toString() const
+		{
+			std::stringstream ss;
+		    ss << "{orderTopic=" << m_orderTopic
+		       << ",messageQueueList=" << UtilAll::toString(m_messageQueueList)
+		       << ",sendWhichQueue=" << m_sendWhichQueue
+		       << ",haveTopicRouterInfo=" << m_haveTopicRouterInfo
+		       << "}";
+		    return ss.str();
+    	}
+
+    private:
+        bool m_orderTopic;
+        std::vector<MessageQueue> m_messageQueueList;
+        kpr::AtomicInteger m_sendWhichQueue;
+		bool m_haveTopicRouterInfo;
+    };
+	typedef kpr::RefHandleT<TopicPublishInfo> TopicPublishInfoPtr;
+}
 
 #endif

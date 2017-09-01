@@ -13,61 +13,63 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#if!defined __CLIENTCONFIG_H__
-#define __CLIENTCONFIG_H__
+#ifndef __RMQ_CLIENTCONFIG_H__
+#define __RMQ_CLIENTCONFIG_H__
 
 #include <string>
 #include "RocketMQClient.h"
 
-/**
- * Producer与Consumer的公共配置
- *
- * @author kangliqiang <kangliq@163.com>
- * @since 2013-10-31
- */
-class ROCKETMQCLIENT_API ClientConfig
+namespace rmq
 {
-public:
-	ClientConfig();
-	virtual ~ClientConfig();
-	
-	//clientid=ip@instanceName
-	std::string buildMQClientId();
+	/**
+	 * Producer and Consumer common configuration
+	 *
+	 */
+	class ClientConfig
+	{
+	public:
+		ClientConfig();
+		virtual ~ClientConfig();
 
-	void resetClientConfig(const ClientConfig& cc);
-	ClientConfig cloneClientConfig();
+		std::string buildMQClientId();
+		void changeInstanceNameToPID();
 
-	std::string getNamesrvAddr();
-	void setNamesrvAddr(const std::string& namesrvAddr);
+		void resetClientConfig(const ClientConfig& cc);
+		ClientConfig cloneClientConfig();
 
-	std::string getClientIP();
-	void setClientIP(const std::string& clientIP);
+		std::string getNamesrvAddr();
+		void setNamesrvAddr(const std::string& namesrvAddr);
 
-	std::string getInstanceName();
-	void setInstanceName(const std::string& instanceName);
+		std::string getClientIP();
+		void setClientIP(const std::string& clientIP);
 
-	int getClientCallbackExecutorThreads();
-	void setClientCallbackExecutorThreads(int clientCallbackExecutorThreads);
+		std::string getInstanceName();
+		void setInstanceName(const std::string& instanceName);
 
-	int getPollNameServerInterval();
+		int getClientCallbackExecutorThreads();
+		void setClientCallbackExecutorThreads(int clientCallbackExecutorThreads);
 
-	void setPollNameServerInterval(int pollNameServerInterval);
+		int getPollNameServerInterval();
 
-	int getHeartbeatBrokerInterval();
-	void setHeartbeatBrokerInterval(int heartbeatBrokerInterval);
+		void setPollNameServerInterval(int pollNameServerInterval);
 
-	int getPersistConsumerOffsetInterval();
-	void setPersistConsumerOffsetInterval(int persistConsumerOffsetInterval);
+		int getHeartbeatBrokerInterval();
+		void setHeartbeatBrokerInterval(int heartbeatBrokerInterval);
 
-private:
-	int m_clientCallbackExecutorThreads;
-	int m_pollNameServerInterval;
-	int m_heartbeatBrokerInterval;
-	int m_persistConsumerOffsetInterval;
-	std::string m_namesrvAddr;
-	std::string m_clientIP;
-	std::string m_instanceName;
-	static const std::string CLIENT_ID_IP_NAME_SEPARATOR;
-};
+		int getPersistConsumerOffsetInterval();
+		void setPersistConsumerOffsetInterval(int persistConsumerOffsetInterval);
+
+		std::string toString() const;
+
+	private:
+		int m_clientCallbackExecutorThreads;
+		int m_pollNameServerInterval;
+		int m_heartbeatBrokerInterval;
+		int m_persistConsumerOffsetInterval;
+		std::string m_clientIP;
+		std::string m_instanceName;
+		std::string m_namesrvAddr;
+	};
+}
 
 #endif

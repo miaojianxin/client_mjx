@@ -14,18 +14,21 @@
  * limitations under the License.
  */
 
-#if!defined __COMMUNICATIONMODE_H__
+#ifndef __COMMUNICATIONMODE_H__
 #define __COMMUNICATIONMODE_H__
 
-/**
- * 通信方式
- *
- */
-enum CommunicationMode
+namespace rmq
 {
-	SYNC,
-	ASYNC,
-	ONEWAY
-};
+	/**
+	 * Communication Mode
+	 *
+	 */
+	enum CommunicationMode
+	{
+	    SYNC,
+	    ASYNC,
+	    ONEWAY
+	};
+}
 
 #endif

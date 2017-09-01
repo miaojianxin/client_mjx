@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#if!defined __KPR_MONITOR_H__
+#ifndef __KPR_MONITOR_H__
 #define __KPR_MONITOR_H__
 
 #include "KPRTypes.h"
@@ -21,28 +21,28 @@
 #include "Mutex.h"
 namespace kpr
 {
-	class Monitor
-	{
-	public:
-		Monitor();
-		virtual ~Monitor();
+class Monitor
+{
+public:
+    Monitor();
+    virtual ~Monitor();
 
-		void Wait();
-		void Wait(long msec);
+    void Wait();
+    void Wait(long msec);
 
-		void Notify();
-		void NotifyAll();
+    void Notify();
+    void NotifyAll();
 
-		void Lock() const;
-		void Unlock() const;
+    void Lock() const;
+    void Unlock() const;
 
-	private:
-		void notify(int times);
-		void validateOwner(const ThreadId& id, const char* caller) const;
+private:
+    void notify(int times);
+    void validateOwner(const ThreadId& id, const char* caller) const;
 
-		RecursiveMutex m_mutex;
-		Condition m_condition;
-		mutable int m_notifyCount;
-	};
+    RecursiveMutex m_mutex;
+    Condition m_condition;
+    mutable int m_notifyCount;
+};
 }
 #endif

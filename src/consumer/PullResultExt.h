@@ -14,40 +14,40 @@
 * limitations under the License.
 */
 
-#if!defined __PULLRESULTEXT_H__
+#ifndef __PULLRESULTEXT_H__
 #define __PULLRESULTEXT_H__
 
 #include "PullResult.h"
 
-/**
-* 只在内部使用，不对外公开
-*
-*/
-struct PullResultExt : public PullResult
+namespace rmq
 {
-	PullResultExt(PullStatus pullStatus,
-				  long long nextBeginOffset,
-				  long long minOffset,
-				  long long maxOffset,
-				  std::list<MessageExt*>& msgFoundList,
-				  long suggestWhichBrokerId,
-				  const char* messageBinary,
-				  int messageBinaryLen)
-		:PullResult(pullStatus,
-					nextBeginOffset,
-					minOffset,
-					maxOffset,
-					msgFoundList),
-		suggestWhichBrokerId(suggestWhichBrokerId),
-		messageBinary(messageBinary),
-		messageBinaryLen(messageBinaryLen)
-	{
 
-	}
+  struct PullResultExt : public PullResult
+  {
+      PullResultExt(PullStatus pullStatus,
+                    long long nextBeginOffset,
+                    long long minOffset,
+                    long long maxOffset,
+                    std::list<MessageExt*>& msgFoundList,
+                    long suggestWhichBrokerId,
+                    const char* messageBinary,
+                    int messageBinaryLen)
+          : PullResult(pullStatus,
+                       nextBeginOffset,
+                       minOffset,
+                       maxOffset,
+                       msgFoundList),
+          suggestWhichBrokerId(suggestWhichBrokerId),
+          messageBinary(messageBinary),
+          messageBinaryLen(messageBinaryLen)
+      {
 
-	long suggestWhichBrokerId;
-	const char* messageBinary;
-	int messageBinaryLen;
-};
+      }
+
+      long suggestWhichBrokerId;
+      const char* messageBinary;
+      int messageBinaryLen;
+  };
+}
 
 #endif

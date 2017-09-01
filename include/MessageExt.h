@@ -13,96 +13,96 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 */
-#if!defined __MESSAGEEXT_H__
-#define __MESSAGEEXT_H__
+#ifndef __RMQ_MESSAGEEXT_H__
+#define __RMQ_MESSAGEEXT_H__
 
-#ifdef WIN32
-#include <Winsock2.h>
-#include <Windows.h>
-#else
 #include <sys/socket.h>
-#endif
-
 #include <string>
 #include "Message.h"
 #include "TopicFilterType.h"
 #include "RocketMQClient.h"
 
-/**
-* 消息扩展属性，在服务器上产生此对象
-*
-*/
-class ROCKETMQCLIENT_API MessageExt : public Message
-{
-public:
-	MessageExt();
+namespace rmq
+	{
+	/**
+	* Message extend
+	*
+	*/
+	class MessageExt : public Message
+	{
+	public:
+		MessageExt();
 
-	MessageExt(int queueId,
-			   long long bornTimestamp,
-			   sockaddr bornHost,
-			   long long storeTimestamp,
-			   sockaddr storeHost,
-			   std::string msgId);
-	
-	~MessageExt();
+		MessageExt(int queueId,
+				   long long bornTimestamp,
+				   sockaddr bornHost,
+				   long long storeTimestamp,
+				   sockaddr storeHost,
+				   std::string msgId);
 
-	static TopicFilterType parseTopicFilterType(int sysFlag);
+		~MessageExt();
 
-	int getQueueId();
-	void setQueueId(int queueId);
+		static TopicFilterType parseTopicFilterType(int sysFlag);
 
-	long long getBornTimestamp();
-	void setBornTimestamp(long long bornTimestamp);
+		int getQueueId();
+		void setQueueId(int queueId);
 
-	sockaddr getBornHost();
-	std::string getBornHostString();
-	std::string getBornHostNameString();
-	void setBornHost(const sockaddr& bornHost);
+		long long getBornTimestamp();
+		void setBornTimestamp(long long bornTimestamp);
 
-	long long getStoreTimestamp();
-	void setStoreTimestamp(long long storeTimestamp);
+		sockaddr getBornHost();
+		std::string getBornHostString();
+		std::string getBornHostNameString();
+		void setBornHost(const sockaddr& bornHost);
 
-	sockaddr getStoreHost();
-	void setStoreHost(const sockaddr& storeHost);
+		long long getStoreTimestamp();
+		void setStoreTimestamp(long long storeTimestamp);
 
-	std::string getMsgId();
-	void setMsgId(const std::string& msgId);
+		sockaddr getStoreHost();
+		std::string getStoreHostString();
+		void setStoreHost(const sockaddr& storeHost);
 
-	int getSysFlag();
-	void setSysFlag(int sysFlag);
+		std::string getMsgId();
+		void setMsgId(const std::string& msgId);
 
-	int getBodyCRC();
-	void setBodyCRC(int bodyCRC);
+		int getSysFlag();
+		void setSysFlag(int sysFlag);
 
-	long long getQueueOffset();
-	void setQueueOffset(long long queueOffset);
+		int getBodyCRC();
+		void setBodyCRC(int bodyCRC);
 
-	long long getCommitLogOffset();
-	void setCommitLogOffset(long long physicOffset);
+		long long getQueueOffset();
+		void setQueueOffset(long long queueOffset);
 
-	int getStoreSize();
-	void setStoreSize(int storeSize);
+		long long getCommitLogOffset();
+		void setCommitLogOffset(long long physicOffset);
 
-	int getReconsumeTimes();
-	void setReconsumeTimes(int reconsumeTimes);
+		int getStoreSize();
+		void setStoreSize(int storeSize);
 
-	long long getPreparedTransactionOffset();
-	void setPreparedTransactionOffset(long long preparedTransactionOffset);
+		int getReconsumeTimes();
+		void setReconsumeTimes(int reconsumeTimes);
 
-private:
-	long long m_queueOffset;// 队列偏移量
-	long long m_commitLogOffset;// 消息对应的Commit Log Offset
-	long long m_bornTimestamp;// 消息在客户端创建时间戳 <PUT>
-	long long m_storeTimestamp;// 消息在服务器存储时间戳
-	long long m_preparedTransactionOffset;
-	int m_queueId;// 队列ID <PUT>
-	int m_storeSize;// 存储记录大小	
-	int m_sysFlag;// 消息标志位 <PUT>
-	int m_bodyCRC;// 消息体CRC
-	int m_reconsumeTimes;// 当前消息被某个订阅组重新消费了几次（订阅组之间独立计数）
-	sockaddr m_bornHost;// 消息来自哪里 <PUT>	
-	sockaddr m_storeHost;// 消息存储在哪个服务器 <PUT>
-	std::string m_msgId;// 消息ID
-};
+		long long getPreparedTransactionOffset();
+		void setPreparedTransactionOffset(long long preparedTransactionOffset);
+
+		std::string toString() const;
+
+	private:
+		long long m_queueOffset;
+		long long m_commitLogOffset;
+		long long m_bornTimestamp;
+		long long m_storeTimestamp;
+		long long m_preparedTransactionOffset;
+		int m_queueId;
+		int m_storeSize;
+		int m_sysFlag;
+		int m_bodyCRC;
+		int m_reconsumeTimes;
+		sockaddr m_bornHost;
+		sockaddr m_storeHost;
+		std::string m_msgId;
+	};
+}
 
 #endif

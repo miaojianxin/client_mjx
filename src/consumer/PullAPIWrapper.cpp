@@ -19,7 +19,7 @@
 #include <stdlib.h>
 #include <list>
 #include <set>
-
+#include "ScopedLock.h"
 #include "MQClientFactory.h"
 #include "PullCallback.h"
 #include "MixAll.h"
@@ -34,196 +34,189 @@
 #include "MessageDecoder.h"
 #include "VirtualEnvUtil.h"
 
+namespace rmq
+{
+
 PullAPIWrapper::PullAPIWrapper(MQClientFactory* pMQClientFactory, const std::string& consumerGroup)
 {
-	m_pMQClientFactory = pMQClientFactory;
-	m_consumerGroup = consumerGroup;
+    m_pMQClientFactory = pMQClientFactory;
+    m_consumerGroup = consumerGroup;
 }
 
-void  PullAPIWrapper::updatePullFromWhichNode(MessageQueue& mq, long brokerId) 
+void  PullAPIWrapper::updatePullFromWhichNode(MessageQueue& mq, long brokerId)
 {
-	std::map<MessageQueue, AtomicLong>::iterator it = m_pullFromWhichNodeTable.find(mq);
-	if (it!=m_pullFromWhichNodeTable.end())
-	{
-		it->second.Set(brokerId);
-	}
-	else
-	{
-		m_pullFromWhichNodeTable[mq]=AtomicLong(brokerId);
-	}
+    std::map<MessageQueue, kpr::AtomicInteger>::iterator it;
+    {
+        kpr::ScopedRLock<kpr::RWMutex> lock(m_pullFromWhichNodeTableLock);
+        it = m_pullFromWhichNodeTable.find(mq);
+        if (it != m_pullFromWhichNodeTable.end())
+        {
+            it->second.set(brokerId);
+            return;
+        }
+    }
+
+    kpr::ScopedWLock<kpr::RWMutex> lock(m_pullFromWhichNodeTableLock);
+    m_pullFromWhichNodeTable[mq] = kpr::AtomicInteger(brokerId);
 }
 
-PullResult* PullAPIWrapper::processPullResult(MessageQueue& mq, 
-	PullResult& pullResult,
-	SubscriptionData& subscriptionData) 
+PullResult* PullAPIWrapper::processPullResult(MessageQueue& mq,
+        PullResult& pullResult,
+        SubscriptionData& subscriptionData)
 {
-	std::string projectGroupPrefix = m_pMQClientFactory->getMQClientAPIImpl()->getProjectGroupPrefix();
-	PullResultExt& pullResultExt = (PullResultExt&) pullResult;
+    std::string projectGroupPrefix = m_pMQClientFactory->getMQClientAPIImpl()->getProjectGroupPrefix();
+    PullResultExt& pullResultExt = (PullResultExt&) pullResult;
 
-	updatePullFromWhichNode(mq, pullResultExt.suggestWhichBrokerId);
+    updatePullFromWhichNode(mq, pullResultExt.suggestWhichBrokerId);
 
-	if (pullResult.pullStatus == FOUND)
-	{
-		std::list<MessageExt*> msgList =
-			MessageDecoder::decodes(pullResultExt.messageBinary, pullResultExt.messageBinaryLen);
+    if (pullResult.pullStatus == FOUND)
+    {
+        std::list<MessageExt*> msgList =
+            MessageDecoder::decodes(pullResultExt.messageBinary, pullResultExt.messageBinaryLen);
 
-		// 消息再次过滤
-		std::list<MessageExt*> msgListFilterAgain;
+        std::list<MessageExt*> msgListFilterAgain;
 
-		if (!subscriptionData.getTagsSet().empty()) 
-		{
-			std::list<MessageExt*>::iterator it = msgList.begin();
-			for (;it!=msgList.end();)
-			{
-				MessageExt* msg = *it;
-				if (!msg->getTags().empty())
-				{
-					std::set<std::string>& tags = subscriptionData.getTagsSet();
-					if (tags.find(msg->getTags())!=tags.end())
-					{
-						msgListFilterAgain.push_back(msg);
-						it = msgList.erase(it);
-					}
-					else
-					{
-						it++;
-					}
-				}
-			}
-		}
-		else
-		{
-			msgListFilterAgain.assign(msgList.begin(),msgList.end());
-			msgList.clear();
-		}
+        if (!subscriptionData.getTagsSet().empty())
+        {
+            std::list<MessageExt*>::iterator it = msgList.begin();
+            for (; it != msgList.end();)
+            {
+                MessageExt* msg = *it;
+                if (!msg->getTags().empty())
+                {
+                    std::set<std::string>& tags = subscriptionData.getTagsSet();
+                    if (tags.find(msg->getTags()) != tags.end())
+                    {
+                        msgListFilterAgain.push_back(msg);
+                        it = msgList.erase(it);
+                    }
+                    else
+                    {
+                        it++;
+                    }
+                }
+            }
+        }
+        else
+        {
+            msgListFilterAgain.assign(msgList.begin(), msgList.end());
+            msgList.clear();
+        }
 
-		// 清除虚拟运行环境相关的projectGroupPrefix
-		if (!UtilAll::isBlank(projectGroupPrefix))
-		{
-			subscriptionData.setTopic(VirtualEnvUtil::clearProjectGroup(subscriptionData.getTopic(),
-				projectGroupPrefix));
-			mq.setTopic(VirtualEnvUtil::clearProjectGroup(mq.getTopic(), projectGroupPrefix));
+        if (!UtilAll::isBlank(projectGroupPrefix))
+        {
+            subscriptionData.setTopic(VirtualEnvUtil::clearProjectGroup(subscriptionData.getTopic(),
+                                      projectGroupPrefix));
+            mq.setTopic(VirtualEnvUtil::clearProjectGroup(mq.getTopic(), projectGroupPrefix));
 
-			std::list<MessageExt*>::iterator it = msgListFilterAgain.begin();
-			for (;it!=msgListFilterAgain.end();it++)
-			{
-				MessageExt* msg = *it;
-				msg->setTopic(VirtualEnvUtil::clearProjectGroup(msg->getTopic(), projectGroupPrefix));
-				// 消息中放入队列的最大最小Offset，方便应用来感知消息堆积程度
+            std::list<MessageExt*>::iterator it = msgListFilterAgain.begin();
+            for (; it != msgListFilterAgain.end(); it++)
+            {
+                MessageExt* msg = *it;
+                msg->setTopic(VirtualEnvUtil::clearProjectGroup(msg->getTopic(), projectGroupPrefix));
 
-				char tmp[32];
-				sprintf(tmp,"%lld",pullResult.minOffset);
+                msg->putProperty(Message::PROPERTY_MIN_OFFSET, UtilAll::toString(pullResult.minOffset));
+                msg->putProperty(Message::PROPERTY_MAX_OFFSET, UtilAll::toString(pullResult.maxOffset));
+            }
+        }
+        else
+        {
+            std::list<MessageExt*>::iterator it = msgListFilterAgain.begin();
+            for (; it != msgListFilterAgain.end(); it++)
+            {
+                MessageExt* msg = *it;
 
-				msg->putProperty(Message::PROPERTY_MIN_OFFSET, tmp);
+                msg->putProperty(Message::PROPERTY_MIN_OFFSET, UtilAll::toString(pullResult.minOffset));
+                msg->putProperty(Message::PROPERTY_MAX_OFFSET, UtilAll::toString(pullResult.maxOffset));
+            }
+        }
 
-				sprintf(tmp,"%lld",pullResult.maxOffset);
-				msg->putProperty(Message::PROPERTY_MAX_OFFSET, tmp);
-			}
-		}
-		else 
-		{
-			// 消息中放入队列的最大最小Offset，方便应用来感知消息堆积程度
-			std::list<MessageExt*>::iterator it = msgListFilterAgain.begin();
-			for (;it!=msgListFilterAgain.end();it++)
-			{
-				MessageExt* msg = *it;
+        std::list<MessageExt*>::iterator it = msgListFilterAgain.begin();
+        for (; it != msgListFilterAgain.end(); it++)
+        {
+            pullResultExt.msgFoundList.push_back(*it);
+        }
 
-				char tmp[32];
-				sprintf(tmp,"%lld",pullResult.minOffset);
+        it = msgList.begin();
+        for (; it != msgList.end(); it++)
+        {
+            delete *it;
+        }
 
-				msg->putProperty(Message::PROPERTY_MIN_OFFSET, tmp);
+        delete[] pullResultExt.messageBinary;
+        pullResultExt.messageBinary = NULL;
+        pullResultExt.messageBinaryLen = 0;
+    }
 
-				sprintf(tmp,"%lld",pullResult.maxOffset);
-				msg->putProperty(Message::PROPERTY_MAX_OFFSET, tmp);
-			}
-		}
-
-		std::list<MessageExt*>::iterator it = msgListFilterAgain.begin();
-		for (;it!=msgListFilterAgain.end();it++)
-		{
-			pullResultExt.msgFoundList.push_back(*it);
-		}
-
-		//清除资源
-		it = msgList.begin();
-		for (;it!=msgList.end();it++)
-		{
-			delete *it;
-		}
-
-		delete[] pullResultExt.messageBinary;
-		pullResultExt.messageBinary = NULL;
-		pullResultExt.messageBinaryLen = 0;
-	}
-
-	return &pullResult;
+    return &pullResult;
 }
 
-long  PullAPIWrapper::recalculatePullFromWhichNode(MessageQueue& mq)
+long PullAPIWrapper::recalculatePullFromWhichNode(MessageQueue& mq)
 {
-	std::map<MessageQueue, AtomicLong>::iterator it = m_pullFromWhichNodeTable.find(mq);
-	if (it!=m_pullFromWhichNodeTable.end())
-	{
-		return it->second.Get();
-	}
+    kpr::ScopedRLock<kpr::RWMutex> lock(m_pullFromWhichNodeTableLock);
+    std::map<MessageQueue, kpr::AtomicInteger>::iterator it = m_pullFromWhichNodeTable.find(mq);
+    if (it != m_pullFromWhichNodeTable.end())
+    {
+        return it->second.get();
+    }
 
-	return MixAll::MASTER_ID;
+    return MixAll::MASTER_ID;
 }
 
 PullResult* PullAPIWrapper::pullKernelImpl(MessageQueue& mq,
-											const std::string& subExpression,
-											long long subVersion,
-											long long offset,
-											int maxNums,
-											int sysFlag,
-											long long commitOffset,
-											long long brokerSuspendMaxTimeMillis,
-											int timeoutMillis,
-											CommunicationMode communicationMode,
-											PullCallback* pPullCallback) 
+        const std::string& subExpression,
+        long long subVersion,
+        long long offset,
+        int maxNums,
+        int sysFlag,
+        long long commitOffset,
+        long long brokerSuspendMaxTimeMillis,
+        int timeoutMillis,
+        CommunicationMode communicationMode,
+        PullCallback* pPullCallback)
 {
-	FindBrokerResult findBrokerResult =
-		m_pMQClientFactory->findBrokerAddressInSubscribe(mq.getBrokerName(),
-		recalculatePullFromWhichNode(mq), false);
-	if (findBrokerResult.brokerAddr.empty()) 
-	{
-		// TODO 此处可能对Name Server压力过大，需要调优
-		m_pMQClientFactory->updateTopicRouteInfoFromNameServer(mq.getTopic());
-		findBrokerResult = m_pMQClientFactory->findBrokerAddressInSubscribe(mq.getBrokerName(),
-			recalculatePullFromWhichNode(mq), false);
-	}
+    FindBrokerResult findBrokerResult =
+        m_pMQClientFactory->findBrokerAddressInSubscribe(mq.getBrokerName(),
+                recalculatePullFromWhichNode(mq), false);
+    if (findBrokerResult.brokerAddr.empty())
+    {
+        m_pMQClientFactory->updateTopicRouteInfoFromNameServer(mq.getTopic());
+        findBrokerResult = m_pMQClientFactory->findBrokerAddressInSubscribe(mq.getBrokerName(),
+                           recalculatePullFromWhichNode(mq), false);
+    }
 
-	if (!findBrokerResult.brokerAddr.empty())
-	{
-		int sysFlagInner = sysFlag;
+    if (!findBrokerResult.brokerAddr.empty())
+    {
+        int sysFlagInner = sysFlag;
 
-		// Slave不允许实时提交消费进度，可以定时提交
-		if (findBrokerResult.slave) 
-		{
-			sysFlagInner = PullSysFlag::clearCommitOffsetFlag(sysFlagInner);
-		}
+        if (findBrokerResult.slave)
+        {
+            sysFlagInner = PullSysFlag::clearCommitOffsetFlag(sysFlagInner);
+        }
 
-		PullMessageRequestHeader* requestHeader = new PullMessageRequestHeader();
-		requestHeader->consumerGroup = m_consumerGroup;
-		requestHeader->topic = mq.getTopic();
-		requestHeader->queueId = mq.getQueueId();
-		requestHeader->queueOffset = offset;
-		requestHeader->maxMsgNums = maxNums;
-		requestHeader->sysFlag = sysFlagInner;
-		requestHeader->commitOffset = commitOffset;
-		requestHeader->suspendTimeoutMillis = brokerSuspendMaxTimeMillis;
-		requestHeader->subscription = subExpression;
-		requestHeader->subVersion = subVersion;
+        PullMessageRequestHeader* requestHeader = new PullMessageRequestHeader();
+        requestHeader->consumerGroup = m_consumerGroup;
+        requestHeader->topic = mq.getTopic();
+        requestHeader->queueId = mq.getQueueId();
+        requestHeader->queueOffset = offset;
+        requestHeader->maxMsgNums = maxNums;
+        requestHeader->sysFlag = sysFlagInner;
+        requestHeader->commitOffset = commitOffset;
+        requestHeader->suspendTimeoutMillis = brokerSuspendMaxTimeMillis;
+        requestHeader->subscription = subExpression;
+        requestHeader->subVersion = subVersion;
 
-		PullResult* pullResult = m_pMQClientFactory->getMQClientAPIImpl()->pullMessage(//
-			findBrokerResult.brokerAddr,//
-			requestHeader,//
-			timeoutMillis,//
-			communicationMode,//
-			pPullCallback);
+        PullResult* pullResult = m_pMQClientFactory->getMQClientAPIImpl()->pullMessage(//
+                                     findBrokerResult.brokerAddr,//
+                                     requestHeader,//
+                                     timeoutMillis,//
+                                     communicationMode,//
+                                     pPullCallback);
 
-		return pullResult;
-	}
+        return pullResult;
+    }
 
-	THROW_MQEXCEPTION(MQClientException,"The broker[" + mq.getBrokerName() + "] not exist",-1);
+    THROW_MQEXCEPTION(MQClientException, "The broker[" + mq.getBrokerName() + "] not exist", -1);
+}
+
 }

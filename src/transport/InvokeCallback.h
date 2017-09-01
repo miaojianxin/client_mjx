@@ -14,20 +14,19 @@
 * limitations under the License.
 */
 
-#if!defined __INVOKECALLBACK_H__
+#ifndef __INVOKECALLBACK_H__
 #define __INVOKECALLBACK_H__
 
-class ResponseFuture;
+#include "ResponseFuture.h"
 
-/**
-* 异步调用应答回调接口
-*
-*/
-class InvokeCallback
+namespace rmq
 {
-public:
-	virtual ~InvokeCallback() {}
-	virtual void operationComplete(ResponseFuture* pResponseFuture) = 0;
-};
+	class InvokeCallback
+	{
+	public:
+	    virtual ~InvokeCallback() {}
+	    virtual void operationComplete(ResponseFuturePtr pResponseFuture) = 0;
+	};
+}
 
 #endif

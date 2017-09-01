@@ -16,78 +16,58 @@
 
 #include "Semaphore.h"
 
-#if !defined(WIN32)
-#   include <unistd.h>
-#   include <sys/time.h>
-#endif
-
+#include <unistd.h>
+#include <sys/time.h>
 #include "KPRUtil.h"
 
 namespace kpr
 {
-	Semaphore::Semaphore(long initial_count)
+Semaphore::Semaphore(long initial_count)
+{
+    sem_init(&m_sem, 0, initial_count);
+}
+
+Semaphore::~Semaphore()
+{
+    sem_destroy(&m_sem);
+}
+
+int Semaphore::GetValue()
+{
+	int value = 0;
+	int rc = sem_getvalue(&m_sem, &value);
+	if (rc < 0)
 	{
-#ifdef WIN32
-		m_sem = CreateSemaphore(0, initial_count, 0x7fffffff, 0);
-#else
-		sem_init(&m_sem, 0, initial_count);
-#endif
+		return rc;
 	}
+	return value;
+}
 
-	Semaphore::~Semaphore()
-	{
-#ifdef WIN32
-		CloseHandle(m_sem);
-#else
-		sem_destroy(&m_sem);
-#endif
-	}
+bool Semaphore::Wait()
+{
+    int rc;
+    rc = sem_wait(&m_sem);
+    return !rc;
+}
 
-	bool Semaphore::Wait()
-	{
-#ifdef WIN32
-		int rc = WaitForSingleObject(m_sem, INFINITE);
+bool Semaphore::Wait(long timeout)
+{
+    int rc;
+    if (timeout < 0)
+    {
+        rc = sem_wait(&m_sem);
+    }
+    else
+    {
+        struct timespec abstime = KPRUtil::CalcAbsTime(timeout);
+        rc = sem_timedwait(&m_sem, &abstime);
+    }
 
-		return rc != WAIT_TIMEOUT && rc !=WAIT_ABANDONED;
-#else
-		int rc;
-		rc = sem_wait(&m_sem);
+    return !rc;
+}
 
-		return !rc;
-#endif
-	}
-
-	bool Semaphore::Wait(long timeout)
-	{
-#ifdef WIN32
-		if (timeout < 0)
-		{
-			timeout = INFINITE;
-		}
-		int rc = WaitForSingleObject(m_sem, timeout);
-		return rc != WAIT_TIMEOUT;
-#else
-		int rc;
-		if (timeout < 0)
-		{
-			rc = sem_wait(&m_sem);
-		}
-		else
-		{
-			struct timespec abstime = CalcAbsTime(timeout);
-			rc = sem_timedwait(&m_sem, &abstime);
-		}
-
-		return !rc;
-#endif
-	}
-
-	void Semaphore::Release(int count)
-	{
-#ifdef WIN32
-		::ReleaseSemaphore(m_sem, count, 0);
-#else
-		sem_post(&m_sem);
-#endif
-	}
+void Semaphore::Release(int count)
+{
+    sem_post(&m_sem);
+}
 }

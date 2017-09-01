@@ -14,34 +14,33 @@
 * limitations under the License.
 */
 
-#if!defined __PRODUCERINVOKECALLBACK_H__
+#ifndef __PRODUCERINVOKECALLBACK_H__
 #define __PRODUCERINVOKECALLBACK_H__
 
-#include "InvokeCallback.h"
 #include <string>
-class MQClientAPIImpl;
+#include "InvokeCallback.h"
 
-class SendCallback;
-
-/**
-* 异步调用应答回调接口
-*
-*/
-class ProducerInvokeCallback : public InvokeCallback
+namespace rmq
 {
-public:
-	ProducerInvokeCallback(SendCallback* pSendCallBack,
-						MQClientAPIImpl* pMQClientAPIImpl,
-						const std::string& topic,
-						const std::string& brokerName);
-	virtual ~ProducerInvokeCallback();
-	virtual void operationComplete(ResponseFuture* pResponseFuture);
+  class MQClientAPIImpl;
+  class SendCallback;
 
-private:
-	SendCallback* m_pSendCallBack;
-	MQClientAPIImpl* m_pMQClientAPIImpl;
-	std::string m_topic;
-	std::string m_brokerName;
-};
+  class ProducerInvokeCallback : public InvokeCallback
+  {
+  public:
+      ProducerInvokeCallback(SendCallback* pSendCallBack,
+                             MQClientAPIImpl* pMQClientAPIImpl,
+                             const std::string& topic,
+                             const std::string& brokerName);
+      virtual ~ProducerInvokeCallback();
+      virtual void operationComplete(ResponseFuturePtr pResponseFuture);
+
+  private:
+      SendCallback* m_pSendCallBack;
+      MQClientAPIImpl* m_pMQClientAPIImpl;
+      std::string m_topic;
+      std::string m_brokerName;
+  };
+}
 
 #endif

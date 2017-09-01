@@ -17,85 +17,116 @@
 #include "UtilAll.h"
 #include "VirtualEnvUtil.h"
 
+namespace rmq
+{
+
 SendResult::SendResult()
-	:m_sendStatus(SEND_OK)
+    : m_sendStatus(SEND_OK),m_queueOffset(0)
 {
 }
 
 SendResult::SendResult(const SendStatus& sendStatus,
-	const std::string&  msgId,
-	MessageQueue& messageQueue,
-	long long queueOffset,
-	std::string&  projectGroupPrefix)
-	:m_sendStatus(sendStatus),
-	m_msgId(msgId),
-	m_messageQueue(messageQueue),
-	m_queueOffset(queueOffset)
+                       const std::string&  msgId,
+                       MessageQueue& messageQueue,
+                       long long queueOffset,
+                       std::string&  projectGroupPrefix)
+    : m_sendStatus(sendStatus),
+      m_msgId(msgId),
+      m_messageQueue(messageQueue),
+      m_queueOffset(queueOffset)
 {
-
-	// 清除虚拟运行环境相关的projectGroupPrefix
-	if (!UtilAll::isBlank(projectGroupPrefix))
-	{
-		m_messageQueue.setTopic(VirtualEnvUtil::clearProjectGroup(m_messageQueue.getTopic(),
-			projectGroupPrefix));
-	}
+    if (!UtilAll::isBlank(projectGroupPrefix))
+    {
+        m_messageQueue.setTopic(VirtualEnvUtil::clearProjectGroup(m_messageQueue.getTopic(),
+                                projectGroupPrefix));
+    }
 }
 
 const std::string&  SendResult::getMsgId()
 {
-	return m_msgId;
+    return m_msgId;
 }
 
 void SendResult::setMsgId(const std::string&  msgId)
 {
-	m_msgId = m_msgId;
+    m_msgId = msgId;
 }
 
 SendStatus SendResult::getSendStatus()
 {
-	return m_sendStatus;
+    return m_sendStatus;
 }
 
 void SendResult::setSendStatus(const SendStatus& sendStatus)
 {
-	m_sendStatus = sendStatus;
+    m_sendStatus = sendStatus;
 }
 
 MessageQueue& SendResult::getMessageQueue()
 {
-	return m_messageQueue;
+    return m_messageQueue;
 }
 
 void SendResult::setMessageQueue(MessageQueue& messageQueue)
 {
-	m_messageQueue = messageQueue;
+    m_messageQueue = messageQueue;
 }
 
 long long SendResult::getQueueOffset()
 {
-	return m_queueOffset;
+    return m_queueOffset;
 }
 
 void SendResult::setQueueOffset(long long queueOffset)
 {
-	m_queueOffset = m_queueOffset;
+    m_queueOffset = queueOffset;
 }
 
 
-/**
-* 发送事务消息返回结果
-*
-*/
+bool SendResult::hasResult()
+{
+	return !m_msgId.empty();
+}
+
+
+
+std::string SendResult::toString() const
+{
+    std::stringstream ss;
+    ss << "{sendStatus=" << m_sendStatus
+       << ",msgId=" << m_msgId
+       << ",messageQueue=" << m_messageQueue.toString()
+       << ",queueOffset=" << m_queueOffset
+       << "}";
+    return ss.str();
+}
+
+
+std::string SendResult::toJsonString() const
+{
+    std::stringstream ss;
+    ss << "{\"sendStatus\":\"" << m_sendStatus
+       << "\",\"msgId\":\"" << m_msgId
+       << "\",\"messageQueue\":" << m_messageQueue.toJsonString()
+       << ",\"queueOffset\":\"" << m_queueOffset
+       << "}";
+    return ss.str();
+}
+
+
+
 TransactionSendResult::TransactionSendResult()
 {
 }
 
 LocalTransactionState TransactionSendResult::getLocalTransactionState()
 {
-	return m_localTransactionState;
+    return m_localTransactionState;
 }
 
 void TransactionSendResult::setLocalTransactionState(LocalTransactionState localTransactionState)
 {
-	m_localTransactionState = localTransactionState;
+    m_localTransactionState = localTransactionState;
+}
+
 }

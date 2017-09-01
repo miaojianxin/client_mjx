@@ -13,8 +13,8 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 */
-#if!defined __ALLOCATEMESSAGEQUEUESTRATEGY_H__
-#define __ALLOCATEMESSAGEQUEUESTRATEGY_H__
+#ifndef __RMQ_ALLOCATEMESSAGEQUEUESTRATEGY_H__
+#define __RMQ_ALLOCATEMESSAGEQUEUESTRATEGY_H__
 
 #include <vector>
 #include <string>
@@ -23,28 +23,32 @@
 #include "RocketMQClient.h"
 #include "MessageQueue.h"
 
-/**
-* Consumer队列自动分配策略
-*
-*/
-class ROCKETMQCLIENT_API AllocateMessageQueueStrategy
+namespace rmq
 {
 	/**
-	* 给当前的ConsumerId分配队列
+	* Consumer Queue Automatic Assignment Policy
 	*
-	* @param currentCID
-	*            当前ConsumerId
-	* @param mqAll
-	*            当前Topic的所有队列集合，无重复数据，且有序
-	* @param cidAll
-	*            当前订阅组的所有Consumer集合，无重复数据，且有序
-	* @return 分配结果，无重复数据
 	*/
-public:
-	virtual ~AllocateMessageQueueStrategy() {}
-	virtual std::vector<MessageQueue>* allocate(const std::string& currentCID,
-			std::vector<MessageQueue>& mqAll,
-			std::list<std::string>& cidAll)=0;
-};
+	class AllocateMessageQueueStrategy
+	{
+	public:
+		virtual ~AllocateMessageQueueStrategy() {}
+
+		/**
+		* Assign queues to the current ConsumerId
+		*
+		* @param [currentCID] Current ConsumerId
+		* @param [mqAll] All queues of the current Topic, no duplicate data, and orderly
+		* @param [cidAll] All subscription groups for the current subscription group, without duplication of data, and orderly
+		* @return allocation results, no duplicate data
+		*/
+		virtual std::vector<MessageQueue>* allocate(
+				const std::string& consumerGroup,
+				const std::string& currentCID,
+				std::vector<MessageQueue>& mqAll,
+				std::list<std::string>& cidAll)=0;
+		virtual std::string getName()=0;
+	};
+}
 
 #endif

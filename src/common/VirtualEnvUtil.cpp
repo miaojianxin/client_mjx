@@ -13,58 +13,54 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 */
-
 #include "VirtualEnvUtil.h"
 
 #include <stdlib.h>
 #include <stdio.h>
-
 #include "UtilAll.h"
+
+namespace rmq
+{
 
 const char* VirtualEnvUtil::VIRTUAL_APPGROUP_PREFIX = "%%PROJECT_%s%%";
 
 std::string VirtualEnvUtil::buildWithProjectGroup(const std::string& origin, const std::string& projectGroup)
 {
-	if (!UtilAll::isBlank(projectGroup))
-	{
-		char prefix[1024];
-		sprintf(prefix,VIRTUAL_APPGROUP_PREFIX, projectGroup.c_str());
+    if (!UtilAll::isBlank(projectGroup))
+    {
+        char prefix[1024];
+        snprintf(prefix, sizeof(prefix), VIRTUAL_APPGROUP_PREFIX, projectGroup.c_str());
 
-		if (origin.find_last_of(prefix)==std::string::npos)
-		{
-			return origin + prefix;
-		}
-		else
-		{
-			return origin;
-		}
-	}
-	else
-	{
-		return origin;
-	}
+        if (origin.find_last_of(prefix) == std::string::npos)
+        {
+            return origin + prefix;
+        }
+        else
+        {
+            return origin;
+        }
+    }
+    else
+    {
+        return origin;
+    }
 }
 
 
-/**
-* 清除虚拟运行环境相关的projectGroupPrefix
-*
-* @param origin
-* @param projectGroup
-* @return
-*/
 std::string VirtualEnvUtil::clearProjectGroup(const std::string& origin, const std::string& projectGroup)
 {
-	char prefix[1024];
-	sprintf(prefix,VIRTUAL_APPGROUP_PREFIX, projectGroup.c_str());
-	int pos = origin.find_last_of(prefix);
+    char prefix[1024];
+    snprintf(prefix, sizeof(prefix), VIRTUAL_APPGROUP_PREFIX, projectGroup.c_str());
+    std::string::size_type pos = origin.find_last_of(prefix);
 
-	if (!UtilAll::isBlank(prefix) && pos!=std::string::npos)
-	{
-		return origin.substr(0,pos);
-	}
-	else
-	{
-		return origin;
-	}
+    if (!UtilAll::isBlank(prefix) && pos != std::string::npos)
+    {
+        return origin.substr(0, pos);
+    }
+    else
+    {
+        return origin;
+    }
+}
+
 }

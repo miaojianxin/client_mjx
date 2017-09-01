@@ -14,7 +14,7 @@
 * limitations under the License.
 */
 
-#if!defined __MQADMINIMPL_H__
+#ifndef __MQADMINIMPL_H__
 #define __MQADMINIMPL_H__
 
 #include <string>
@@ -25,39 +25,39 @@
 #include "MessageExt.h"
 #include "QueryResult.h"
 
-class MQClientFactory;
-class MessageQueue;
-
-/**
-* 管理类接口实现
-*
-*/
-class MQAdminImpl
+namespace rmq
 {
-public:
-	MQAdminImpl(MQClientFactory* pMQClientFactory);
-	~MQAdminImpl();
+    class MQClientFactory;
+    class MessageQueue;
 
-	void createTopic(const std::string& key, const std::string& newTopic, int queueNum);
+    class MQAdminImpl
+    {
+    public:
+        MQAdminImpl(MQClientFactory* pMQClientFactory);
+        ~MQAdminImpl();
 
-	std::vector<MessageQueue>* fetchPublishMessageQueues(const std::string& topic);
-	std::set<MessageQueue>* fetchSubscribeMessageQueues(const std::string& topic);
-	long long searchOffset(const MessageQueue& mq, long long timestamp);
-	long long maxOffset(const MessageQueue& mq);
-	long long minOffset(const MessageQueue& mq);
+        void createTopic(const std::string& key, const std::string& newTopic, int queueNum);
+		void createTopic(const std::string& key, const std::string& newTopic, int queueNum, int topicSysFlag);
 
-	long long earliestMsgStoreTime(const MessageQueue& mq);
+        std::vector<MessageQueue>* fetchPublishMessageQueues(const std::string& topic);
+        std::set<MessageQueue>* fetchSubscribeMessageQueues(const std::string& topic);
+        long long searchOffset(const MessageQueue& mq, long long timestamp);
+        long long maxOffset(const MessageQueue& mq);
+        long long minOffset(const MessageQueue& mq);
 
-	MessageExt viewMessage(const std::string& msgId);
+        long long earliestMsgStoreTime(const MessageQueue& mq);
 
-	QueryResult queryMessage(const std::string& topic,
-							 const std::string& key,
-							 int maxNum,
-							 long long begin,
-							 long long end);
+        MessageExt* viewMessage(const std::string& msgId);
 
-private:
-	MQClientFactory* m_pMQClientFactory;
-};
+        QueryResult queryMessage(const std::string& topic,
+                                 const std::string& key,
+                                 int maxNum,
+                                 long long begin,
+                                 long long end);
+
+    private:
+        MQClientFactory* m_pMQClientFactory;
+    };
+}
 
 #endif

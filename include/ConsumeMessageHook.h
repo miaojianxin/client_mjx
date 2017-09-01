@@ -13,29 +13,33 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 */
-#if!defined __CONSUMEMESSAGEHOOK_H__
-#define __CONSUMEMESSAGEHOOK_H__
+#ifndef __RMQ_CONSUMEMESSAGEHOOK_H__
+#define __RMQ_CONSUMEMESSAGEHOOK_H__
 
 #include <list>
 
 #include "RocketMQClient.h"
 #include "MessageQueue.h"
 
-typedef struct
+namespace rmq
 {
-	std::string consumerGroup;
-	std::list<MessageExt*> msgList;
-	MessageQueue mq;
-	bool success;
-	void* arg;
-} ConsumeMessageContext;
+	typedef struct
+	{
+		std::string consumerGroup;
+		std::list<MessageExt*> msgList;
+		MessageQueue mq;
+		bool success;
+		void* arg;
+	} ConsumeMessageContext;
 
-class ROCKETMQCLIENT_API ConsumeMessageHook
-{
-public:
-	virtual ~ConsumeMessageHook() {}
-	virtual std::string hookName()=0;
-	virtual void consumeMessageBefore(const ConsumeMessageContext& context)=0;
-	virtual void consumeMessageAfter(const ConsumeMessageContext& context)=0;
-};
+	class ConsumeMessageHook
+	{
+	public:
+		virtual ~ConsumeMessageHook() {}
+		virtual std::string hookName()=0;
+		virtual void consumeMessageBefore(const ConsumeMessageContext& context)=0;
+		virtual void consumeMessageAfter(const ConsumeMessageContext& context)=0;
+	};
+}
+
 #endif

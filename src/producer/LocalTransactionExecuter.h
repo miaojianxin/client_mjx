@@ -13,20 +13,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#if!defined __LOCALTRANSACTIONEXECUTER_H__
+#ifndef __LOCALTRANSACTIONEXECUTER_H__
 #define __LOCALTRANSACTIONEXECUTER_H__
 
 #include "SendResult.h"
 
-/**
- * 执行本地事务，由客户端回调
- *
- */
-class LocalTransactionExecuter
+namespace rmq
 {
-public:
-	virtual~LocalTransactionExecuter() {}
-	virtual	LocalTransactionState executeLocalTransactionBranch(Message& msg, void* arg)=0;
-};
+	class LocalTransactionExecuter
+	{
+	public:
+	    virtual~LocalTransactionExecuter() {}
+	    virtual LocalTransactionState executeLocalTransactionBranch(Message& msg, void* arg) = 0;
+	};
+}
 
 #endif

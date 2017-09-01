@@ -14,7 +14,7 @@
 * limitations under the License.
 */
 
-#if!defined __MQCLIENTMANAGER_H__
+#ifndef __MQCLIENTMANAGER_H__
 #define __MQCLIENTMANAGER_H__
 
 #include <string>
@@ -22,29 +22,28 @@
 #include "Mutex.h"
 #include "AtomicValue.h"
 
-class MQClientFactory;
-class ClientConfig;
-
-/**
-* Clientµ¥Àý¹ÜÀí
-*
-*/
-class MQClientManager
+namespace rmq
 {
-public:
-	~MQClientManager();
-	static MQClientManager* getInstance();
-	MQClientFactory* getAndCreateMQClientFactory(ClientConfig& clientConfig);
-	void removeClientFactory(const std::string&  clientId);
+	class MQClientFactory;
+	class ClientConfig;
 
-private:
-	MQClientManager();
+	class MQClientManager
+	{
+	public:
+	    ~MQClientManager();
+	    static MQClientManager* getInstance();
+	    MQClientFactory* getAndCreateMQClientFactory(ClientConfig& clientConfig);
+	    void removeClientFactory(const std::string&  clientId);
 
-private:
-	static MQClientManager* s_instance;
-	AtomicInteger m_factoryIndexGenerator;
-	std::map<std::string, MQClientFactory*> m_factoryTable;
-	kpr::Mutex m_mutex;
-};
+	private:
+	    MQClientManager();
+
+	private:
+	    static MQClientManager* s_instance;
+	    kpr::AtomicInteger m_factoryIndexGenerator;
+	    std::map<std::string, MQClientFactory*> m_factoryTable;
+	    kpr::Mutex m_mutex;
+	};
+}
 
 #endif

@@ -13,69 +13,37 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 */
-#if!defined __VALIDATORST_H__
+#ifndef __VALIDATORST_H__
 #define  __VALIDATORST_H__
 
 #include <string>
-class MQClientException;
-class DefaultMQProducer;
-class Message;
 
-/**
-* 有效性检查公用类。
-*
-* @author manhong.yqd<jodie.yqd@gmail.com>
-* @since 2013-8-28
-*/
-class Validators
+namespace rmq
 {
-public:
-	/**
-	* 通过正则表达式进行字符匹配
-	*
-	* @param origin
-	* @param patternStr
-	* @return
-	*/
-	static bool regularExpressionMatcher(const std::string& origin, const std::string& patternStr);
+    class MQClientException;
+    class DefaultMQProducer;
+    class Message;
 
-	/**
-	* 通过正则表达式查找匹配的字符
-	*
-	* @param origin
-	* @param patternStr
-	* @return
-	*/
-	static std::string getGroupWithRegularExpression(const std::string& origin, const std::string& patternStr);
+    /**
+    * Validator class
+    *
+    * @author manhong.yqd<jodie.yqd@gmail.com>
+    * @since 2013-8-28
+    */
+    class Validators
+    {
+    public:
+        static bool regularExpressionMatcher(const std::string& origin, const std::string& patternStr);
+        static std::string getGroupWithRegularExpression(const std::string& origin, const std::string& patternStr);
 
-	/**
-	* topic 有效性检查
-	*
-	* @param topic
-	* @throws MQClientException
-	*/
-	static void checkTopic(const std::string& topic);
+        static void checkTopic(const std::string& topic);
+        static void checkGroup(const std::string& group);
+        static void checkMessage(const Message& msg, DefaultMQProducer* pDefaultMQProducer);
 
-	/**
-	* group 有效性检查
-	*
-	* @param group
-	* @throws MQClientException
-	*/
-	static void checkGroup(const std::string& group);
-
-	/**
-	* message 有效性检查
-	*
-	* @param msg
-	* @param int maxMessageSize
-	* @throws MQClientException
-	*/
-	static void checkMessage(const Message& msg, int maxMessageSize);
-
-public:
-	static const std::string validPatternStr;
-	static const int CHARACTER_MAX_LENGTH;
-};
+    public:
+        static const std::string validPatternStr;
+        static const size_t CHARACTER_MAX_LENGTH;
+    };
+}
 
 #endif

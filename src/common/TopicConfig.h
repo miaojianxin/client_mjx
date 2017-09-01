@@ -14,49 +14,58 @@
 * limitations under the License.
 */
 
-#if!defined __TOPICCONFIG_H__
+#ifndef __TOPICCONFIG_H__
 #define __TOPICCONFIG_H__
 
 #include <string>
 #include "TopicFilterType.h"
 
-/**
-* Topic≈‰÷√
-*
-*/
-class TopicConfig
-{
-public:
-	TopicConfig();
-	TopicConfig(const std::string& topicName);
-	TopicConfig(const std::string& topicName, int readQueueNums, int writeQueueNums, int perm);
-	~TopicConfig();
+namespace rmq
+    {
+    /**
+    * Topic
+    *
+    */
+    class TopicConfig
+    {
+    public:
+        TopicConfig();
+        TopicConfig(const std::string& topicName);
+        TopicConfig(const std::string& topicName, int readQueueNums, int writeQueueNums, int perm);
+        ~TopicConfig();
 
-	std::string encode();
-	bool decode(const std::string& in);
-	const std::string& getTopicName();
-	void setTopicName(const std::string& topicName);
-	int getReadQueueNums();
-	void setReadQueueNums(int readQueueNums);
-	int getWriteQueueNums();
-	void setWriteQueueNums(int writeQueueNums);
-	int getPerm();
-	void setPerm(int perm);
-	TopicFilterType getTopicFilterType();
-	void setTopicFilterType(TopicFilterType topicFilterType);
+        std::string encode();
+        bool decode(const std::string& in);
+        const std::string& getTopicName();
+        void setTopicName(const std::string& topicName);
+        int getReadQueueNums();
+        void setReadQueueNums(int readQueueNums);
+        int getWriteQueueNums();
+        void setWriteQueueNums(int writeQueueNums);
+        int getPerm();
+        void setPerm(int perm);
+        TopicFilterType getTopicFilterType();
+        void setTopicFilterType(TopicFilterType topicFilterType);
+		int getTopicSysFlag();
+        void setTopicSysFlag(int topicSysFlag);
+		bool isOrder();
+        void setOrder(bool order);
 
-public:
-	static int DefaultReadQueueNums;
-	static int DefaultWriteQueueNums;
+    public:
+        static int DefaultReadQueueNums;
+        static int DefaultWriteQueueNums;
 
-private:
-	static std::string SEPARATOR;
+    private:
+        static std::string SEPARATOR;
 
-	std::string m_topicName;
-	int m_readQueueNums;
-	int m_writeQueueNums;
-	int m_perm;
-	TopicFilterType m_topicFilterType;
-};
+        std::string m_topicName;
+        int m_readQueueNums;
+        int m_writeQueueNums;
+        int m_perm;
+        TopicFilterType m_topicFilterType;
+		int m_topicSysFlag;
+		bool m_order;
+    };
+}
 
 #endif

@@ -14,35 +14,37 @@
 * limitations under the License.
 */
 
-#if!defined __SERVICETHREAD_H__
+#ifndef __SERVICETHREAD_H__
 #define __SERVICETHREAD_H__
 
 #include <string>
 #include "Thread.h"
 #include "Monitor.h"
 
-// 线程回收时间，默认90S
-const long JoinTime = 90 * 1000;
-
-/**
-* 后台服务线程基类
-*
-*/
-class ServiceThread :public kpr::Thread,public kpr::Monitor
+namespace rmq
 {
-public:
-	ServiceThread(const char* name=NULL);
-	virtual ~ServiceThread();
+	const long JoinTime = 90 * 1000;
 
-	virtual std::string  getServiceName() = 0;
+	/**
+	* service thread base class
+	*
+	*/
+	class ServiceThread : public kpr::Thread, public kpr::Monitor
+	{
+	public:
+	    ServiceThread(const char* name = NULL);
+	    virtual ~ServiceThread();
 
-	void stop();
-	void wakeup();
-	void waitForRunning(long interval);
+	    virtual std::string  getServiceName() = 0;
 
-protected:
-	volatile bool m_notified;// 是否已经被Notify过
-	volatile bool m_stoped; // 线程是否已经停止
-};
+	    void stop();
+	    void wakeup();
+	    void waitForRunning(long interval);
+
+	protected:
+	    volatile bool m_notified;
+	    volatile bool m_stoped;
+	};
+}
 
 #endif

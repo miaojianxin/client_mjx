@@ -14,39 +14,43 @@
 * limitations under the License.
 */
 
-#if!defined __QUERYRESULT_H__
-#define  __QUERYRESULT_H__
+#ifndef __RMQ_QUERYRESULT_H__
+#define  __RMQ_QUERYRESULT_H__
 
 #include <list>
-#include "MessageExt.h"
+
 #include "RocketMQClient.h"
+#include "MessageExt.h"
 
-/**
-* 查询消息返回结果
-*
-*/
-class ROCKETMQCLIENT_API QueryResult
+namespace rmq
 {
-public:
-	QueryResult(long long indexLastUpdateTimestamp, const std::list<MessageExt*>& messageList)
+	/**
+	* QueryResult
+	*
+	*/
+	class QueryResult
 	{
-		m_indexLastUpdateTimestamp = indexLastUpdateTimestamp;
-		m_messageList = messageList;
-	}
+	public:
+		QueryResult(long long indexLastUpdateTimestamp, const std::list<MessageExt*>& messageList)
+		{
+			m_indexLastUpdateTimestamp = indexLastUpdateTimestamp;
+			m_messageList = messageList;
+		}
 
-	long long getIndexLastUpdateTimestamp()
-	{
-		return m_indexLastUpdateTimestamp;
-	}
+		long long getIndexLastUpdateTimestamp()
+		{
+			return m_indexLastUpdateTimestamp;
+		}
 
-	std::list<MessageExt*>& getMessageList()
-	{
-		return m_messageList;
-	}
+		std::list<MessageExt*>& getMessageList()
+		{
+			return m_messageList;
+		}
 
-private:
-	long long m_indexLastUpdateTimestamp;
-	std::list<MessageExt*> m_messageList;
-};
+	private:
+		long long m_indexLastUpdateTimestamp;
+		std::list<MessageExt*> m_messageList;
+	};
+}
 
 #endif

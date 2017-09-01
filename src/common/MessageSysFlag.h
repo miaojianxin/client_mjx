@@ -14,30 +14,33 @@
 * limitations under the License.
 */
 
-#if!defined __MESSAGESYSFLAG_H__
+#ifndef __MESSAGESYSFLAG_H__
 #define __MESSAGESYSFLAG_H__
 
-class MessageSysFlag 
+namespace rmq
 {
-public:
-	static int getTransactionValue(int flag);
-	static int resetTransactionValue(int flag, int type);
+    class MessageSysFlag
+    {
+    public:
+        static int getTransactionValue(int flag);
+        static int resetTransactionValue(int flag, int type);
 
-public:
-	/**
-	* SysFlag
-	*/
-	static int CompressedFlag;
-	static int MultiTagsFlag;
+    public:
+        /**
+        * SysFlag
+        */
+        static int CompressedFlag;
+        static int MultiTagsFlag;
 
-	/**
-	* 7 6 5 4 3 2 1 0<br>
-	* SysFlag 事务相关，从左属，2与3
-	*/
-	static int TransactionNotType;
-	static int TransactionPreparedType;
-	static int TransactionCommitType;
-	static int TransactionRollbackType;
-};
+        /**
+        * 7 6 5 4 3 2 1 0<br>
+        * SysFlag for transaction
+        */
+        static int TransactionNotType;
+        static int TransactionPreparedType;
+        static int TransactionCommitType;
+        static int TransactionRollbackType;
+    };
+}
 
 #endif

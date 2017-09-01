@@ -13,36 +13,44 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 */
-#if!defined __REBALANCEPULLIMPL_H__
+#ifndef __REBALANCEPULLIMPL_H__
 #define __REBALANCEPULLIMPL_H__
 
 #include "RebalanceImpl.h"
 
+namespace rmq
+{
 class DefaultMQPullConsumerImpl;
 
 class RebalancePullImpl : public RebalanceImpl
 {
 public:
-	RebalancePullImpl(DefaultMQPullConsumerImpl* pDefaultMQPullConsumerImpl);
+    RebalancePullImpl(DefaultMQPullConsumerImpl *pDefaultMQPullConsumerImpl);
 
-	RebalancePullImpl(const std::string& consumerGroup,
-		MessageModel messageModel,
-		AllocateMessageQueueStrategy* pAllocateMessageQueueStrategy,
-		MQClientFactory* pMQClientFactory,
-		DefaultMQPullConsumerImpl* pDefaultMQPullConsumerImpl);
+    RebalancePullImpl(const std::string &consumerGroup,
+                      MessageModel messageModel,
+                      AllocateMessageQueueStrategy *pAllocateMessageQueueStrategy,
+                      MQClientFactory *pMQClientFactory,
+                      DefaultMQPullConsumerImpl *pDefaultMQPullConsumerImpl);
 
-	long long computePullFromWhere(MessageQueue& mq);
+    long long computePullFromWhere(MessageQueue &mq);
 
-	void dispatchPullRequest(std::list<PullRequest*>& pullRequestList);
+    void dispatchPullRequest(std::list<PullRequest *> &pullRequestList);
 
-	void messageQueueChanged(const std::string& topic, 
-		std::set<MessageQueue>& mqAll, 
-		std::set<MessageQueue>& mqDivided);
+    void messageQueueChanged(const std::string &topic,
+                             std::set<MessageQueue> &mqAll,
+                             std::set<MessageQueue> &mqDivided);
 
-	void removeUnnecessaryMessageQueue(MessageQueue& mq, ProcessQueue& pq);
+    bool removeUnnecessaryMessageQueue(MessageQueue &mq, ProcessQueue &pq);
+
+    ConsumeType consumeType()
+    {
+        return CONSUME_ACTIVELY;
+    };
 
 private:
-	DefaultMQPullConsumerImpl* m_pDefaultMQPullConsumerImpl;
+    DefaultMQPullConsumerImpl *m_pDefaultMQPullConsumerImpl;
 };
+}
 
 #endif

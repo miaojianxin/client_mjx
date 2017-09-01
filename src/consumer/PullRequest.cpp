@@ -15,7 +15,10 @@
 */
 
 #include "PullRequest.h"
+#include "UtilAll.h"
 
+namespace rmq
+{
 
 PullRequest::~PullRequest()
 {
@@ -24,75 +27,82 @@ PullRequest::~PullRequest()
 
 std::string PullRequest::getConsumerGroup()
 {
-	return m_consumerGroup;
+    return m_consumerGroup;
 }
 
 void PullRequest::setConsumerGroup(const std::string& consumerGroup)
 {
-	m_consumerGroup = consumerGroup;
+    m_consumerGroup = consumerGroup;
 }
 
-MessageQueue* PullRequest::getMessageQueue()
+MessageQueue& PullRequest::getMessageQueue()
 {
-	return m_pMessageQueue;
+    return m_messageQueue;
 }
 
-void PullRequest::setMessageQueue(MessageQueue* pMessageQueue)
+void PullRequest::setMessageQueue(const MessageQueue& messageQueue)
 {
-	m_pMessageQueue = pMessageQueue;
+    m_messageQueue = messageQueue;
 }
 
 long long PullRequest::getNextOffset()
 {
-	return m_nextOffset;
+    return m_nextOffset;
 }
 
 void PullRequest::setNextOffset(long long nextOffset)
 {
-	m_nextOffset = nextOffset;
-}
-
-
-std::string PullRequest::toString() {
-	std::string s;
-	s.append("{")
-			.append("ConsumerGroup:").append(m_consumerGroup)
-			.append(", ").append("MessageQueue: ").append(m_pMessageQueue->toString())
-			.append(", NextOffset: ").append(std::to_string(m_nextOffset))
-	 .append("}");
-	return s;
+    m_nextOffset = nextOffset;
 }
 
 int PullRequest::hashCode()
 {
-	int prime = 31;
-	int result = 1;
-	//result = prime * result + ((consumerGroup == null) ? 0 : consumerGroup.hashCode());
-	//result = prime * result + ((messageQueue == null) ? 0 : messageQueue.hashCode());
-	return result;
+    /*
+    final int prime = 31;
+    int result = 1;
+    result = prime * result + ((consumerGroup == null) ? 0 : consumerGroup.hashCode());
+    result = prime * result + ((messageQueue == null) ? 0 : messageQueue.hashCode());
+    return result;
+    */
+    std::stringstream ss;
+    ss  << m_consumerGroup
+        << m_messageQueue.hashCode();
+    return UtilAll::hashCode(ss.str());
 }
+
+std::string PullRequest::toString() const
+{
+    std::stringstream ss;
+    ss << "{consumerGroup=" << m_consumerGroup
+       << ",messageQueue=" << m_messageQueue.toString()
+       << ",nextOffset=" << m_nextOffset << "}";
+    return ss.str();
+}
+
 
 bool PullRequest::operator==(const PullRequest& other)
 {
-	if (m_consumerGroup!=other.m_consumerGroup)
-	{
-		return false;
-	}
+    if (m_consumerGroup != other.m_consumerGroup)
+    {
+        return false;
+    }
 
-	if (!(*m_pMessageQueue==*(other.m_pMessageQueue)))
-	{
-		return false;
-	}
+    if (!(m_messageQueue == other.m_messageQueue))
+    {
+        return false;
+    }
 
-	return true;
+    return true;
 }
 
 ProcessQueue* PullRequest::getProcessQueue()
 {
-	return m_pProcessQueue;
+    return m_pProcessQueue;
 }
 
 void PullRequest::setProcessQueue(ProcessQueue* pProcessQueue)
 {
-	m_pProcessQueue = pProcessQueue;
+    m_pProcessQueue = pProcessQueue;
+}
+
 }

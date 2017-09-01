@@ -14,39 +14,38 @@
 * limitations under the License.
 */
 
-#if!defined __TOPICSTATSTABLE_H__
+#ifndef __TOPICSTATSTABLE_H__
 #define __TOPICSTATSTABLE_H__
 
 #include <map>
 
-class MessageQueue;
-
-typedef struct
+namespace rmq
 {
-	long long minOffset;
-	long long maxOffset;
-	long long lastUpdateTimestamp;
-} TopicOffset;
+    class MessageQueue;
 
-/**
-* Topic所有队列的Offset
-*
-*/
-class TopicStatsTable
-{
-public:
-	std::map<MessageQueue*, TopicOffset> getOffsetTable()
-	{
-		return m_offsetTable;
-	}
+    typedef struct
+    {
+        long long minOffset;
+        long long maxOffset;
+        long long lastUpdateTimestamp;
+    } TopicOffset;
 
-	void setOffsetTable(const std::map<MessageQueue*, TopicOffset>& offsetTable)
-	{
-		m_offsetTable = offsetTable;
-	}
+    class TopicStatsTable
+    {
+    public:
+        std::map<MessageQueue*, TopicOffset> getOffsetTable()
+        {
+            return m_offsetTable;
+        }
 
-private:
-	std::map<MessageQueue*, TopicOffset> m_offsetTable;
-};
+        void setOffsetTable(const std::map<MessageQueue*, TopicOffset>& offsetTable)
+        {
+            m_offsetTable = offsetTable;
+        }
+
+    private:
+        std::map<MessageQueue*, TopicOffset> m_offsetTable;
+    };
+}
 
 #endif

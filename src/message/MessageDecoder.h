@@ -13,7 +13,7 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 */
-#if!defined __MESSAGEDECODER_H__
+#ifndef __MESSAGEDECODER_H__
 #define  __MESSAGEDECODER_H__
 
 #include <string>
@@ -23,48 +23,42 @@
 #include "SocketUtil.h"
 #include "MessageId.h"
 
-class MessageExt;
-class UnknownHostException;
-
-/**
-* 消息解码
-*
-*/
-class MessageDecoder
+namespace rmq
 {
-public:
-	static std::string createMessageId(sockaddr& addr, long long offset);
-	static MessageId decodeMessageId(const std::string& msgId);
+    class MessageExt;
+    class UnknownHostException;
 
-	static MessageExt* decode(const char* pData, int len, int& offset);
-	static MessageExt* decode(const char* pData, int len, int& offset, bool readBody);
+    /**
+    * Message decoder
+    *
+    */
+    class MessageDecoder
+    {
+    public:
+        static std::string createMessageId(sockaddr& addr, long long offset);
+        static MessageId decodeMessageId(const std::string& msgId);
 
-	static std::list<MessageExt*> decodes(const char* pData, int len);
-	static std::list<MessageExt*> decodes(const char* pData, int len, bool readBody);
+        static MessageExt* decode(const char* pData, int len, int& offset);
+        static MessageExt* decode(const char* pData, int len, int& offset, bool readBody);
 
-	static std::string messageProperties2String(const std::map<std::string, std::string>& properties);
-	static void string2messageProperties(std::map<std::string, std::string>& properties,
-										std::string& propertiesString);
+        static std::list<MessageExt*> decodes(const char* pData, int len);
+        static std::list<MessageExt*> decodes(const char* pData, int len, bool readBody);
 
-public:
-	/**
-	* 序列化消息属性
-	*/
-	static const char NAME_VALUE_SEPARATOR;
-	static const char PROPERTY_SEPARATOR;
+        static std::string messageProperties2String(const std::map<std::string, std::string>& properties);
+        static void string2messageProperties(std::map<std::string, std::string>& properties,
+                                             std::string& propertiesString);
 
-	/**
-	* 消息ID定长
-	*/
-	static const int MSG_ID_LENGTH;
+    public:
+        static const char NAME_VALUE_SEPARATOR;
+        static const char PROPERTY_SEPARATOR;
 
-	/**
-	* 存储记录各个字段位置
-	*/
-	static int MessageMagicCodePostion;
-	static int MessageFlagPostion;
-	static int MessagePhysicOffsetPostion;
-	static int MessageStoreTimestampPostion;
-};
+        static const int MSG_ID_LENGTH;
+
+        static int MessageMagicCodePostion;
+        static int MessageFlagPostion;
+        static int MessagePhysicOffsetPostion;
+        static int MessageStoreTimestampPostion;
+    };
+}
 
 #endif

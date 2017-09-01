@@ -13,11 +13,14 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 */
-
 #include "MQClientManager.h"
 #include "ScopedLock.h"
 #include "MQClientFactory.h"
 #include "ClientConfig.h"
+
+namespace rmq
+{
+
 
 MQClientManager* MQClientManager::s_instance = new MQClientManager();
 
@@ -33,37 +36,40 @@ MQClientManager::~MQClientManager()
 
 MQClientManager* MQClientManager::getInstance()
 {
-	return s_instance;
+    return s_instance;
 }
 
 MQClientFactory* MQClientManager::getAndCreateMQClientFactory(ClientConfig& clientConfig)
 {
-	std::string clientId = clientConfig.buildMQClientId();
-	kpr::ScopedLock<kpr::Mutex> lock(m_mutex);
-	std::map<std::string, MQClientFactory*>::iterator it=m_factoryTable.find(clientId);
+    std::string clientId = clientConfig.buildMQClientId();
+    kpr::ScopedLock<kpr::Mutex> lock(m_mutex);
+    std::map<std::string, MQClientFactory*>::iterator it = m_factoryTable.find(clientId);
 
-	if (it!=m_factoryTable.end())
-	{
-		return it->second;
-	}
-	else
-	{
-		MQClientFactory* factory= new MQClientFactory(clientConfig, m_factoryIndexGenerator++, clientId);
+    if (it != m_factoryTable.end())
+    {
+        return it->second;
+    }
+    else
+    {
+        MQClientFactory* factory = new MQClientFactory(clientConfig, m_factoryIndexGenerator++, clientId);
 
-		m_factoryTable[clientId]=factory;
+        m_factoryTable[clientId] = factory;
 
-		return factory;
-	}
+        return factory;
+    }
 }
 
 void MQClientManager::removeClientFactory(const std::string&  clientId)
 {
-	kpr::ScopedLock<kpr::Mutex> lock(m_mutex);
-	std::map<std::string, MQClientFactory*>::iterator it=m_factoryTable.find(clientId);
+    kpr::ScopedLock<kpr::Mutex> lock(m_mutex);
+    std::map<std::string, MQClientFactory*>::iterator it = m_factoryTable.find(clientId);
 
-	if (it!=m_factoryTable.end())
-	{
-		//delete it->second;
-		m_factoryTable.erase(it);
-	}
+    if (it != m_factoryTable.end())
+    {
+        //delete it->second;
+        m_factoryTable.erase(it);
+    }
 }
+
+}
+

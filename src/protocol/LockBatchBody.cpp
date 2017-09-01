@@ -13,8 +13,11 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 */
-
 #include "LockBatchBody.h"
+#include "UtilAll.h"
+
+namespace rmq
+{
 
 LockBatchRequestBody::LockBatchRequestBody()
 {
@@ -24,39 +27,50 @@ LockBatchRequestBody::~LockBatchRequestBody()
 {
 }
 
-void LockBatchRequestBody::Encode(std::string& outData)
+void LockBatchRequestBody::encode(std::string& outData)
 {
 
 }
 
+std::string LockBatchRequestBody::toString() const
+{
+	std::stringstream ss;
+	ss << "{consumerGroup=" << m_consumerGroup
+	   << ",clientId=" << m_clientId
+	   << ",mqSet=" << UtilAll::toString(m_mqSet)
+	   << "}";
+	return ss.str();
+}
+
+
 std::string LockBatchRequestBody::getConsumerGroup()
 {
-	return m_consumerGroup;
+    return m_consumerGroup;
 }
 
 void LockBatchRequestBody::setConsumerGroup(const std::string& consumerGroup)
 {
-	m_consumerGroup = consumerGroup;
+    m_consumerGroup = consumerGroup;
 }
 
 std::string LockBatchRequestBody::getClientId()
 {
-	return m_clientId;
+    return m_clientId;
 }
 
 void LockBatchRequestBody::setClientId(const std::string& clientId)
 {
-	m_clientId = clientId;
+    m_clientId = clientId;
 }
 
 std::set<MessageQueue>& LockBatchRequestBody::getMqSet()
 {
-	return m_mqSet;
+    return m_mqSet;
 }
 
 void LockBatchRequestBody::setMqSet(const std::set<MessageQueue>& mqSet)
 {
-	m_mqSet = mqSet;
+    m_mqSet = mqSet;
 }
 
 LockBatchResponseBody::LockBatchResponseBody()
@@ -67,22 +81,32 @@ LockBatchResponseBody::~LockBatchResponseBody()
 {
 }
 
-void LockBatchResponseBody::Encode(std::string& outData)
+void LockBatchResponseBody::encode(std::string& outData)
 {
-
 }
 
-LockBatchResponseBody* LockBatchResponseBody::Decode(char* pData,int len)
+std::string LockBatchResponseBody::toString() const
 {
-	return new LockBatchResponseBody();
+	std::stringstream ss;
+	ss << "{consumerGroup=" << UtilAll::toString(m_lockOKMQSet)
+	   << "}";
+	return ss.str();
+}
+
+
+LockBatchResponseBody* LockBatchResponseBody::decode(const char* pData, int len)
+{
+    return new LockBatchResponseBody();
 }
 
 std::set<MessageQueue> LockBatchResponseBody::getLockOKMQSet()
 {
-	return m_lockOKMQSet;
+    return m_lockOKMQSet;
 }
 
 void LockBatchResponseBody::setLockOKMQSet(const std::set<MessageQueue>& lockOKMQSet)
 {
-	m_lockOKMQSet = lockOKMQSet;
+    m_lockOKMQSet = lockOKMQSet;
+}
+
 }

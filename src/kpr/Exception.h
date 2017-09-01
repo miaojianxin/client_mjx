@@ -23,74 +23,76 @@
 
 namespace kpr
 {
-	class Exception : public std::exception
-	{
-	public:
-		Exception(const char* msg, int error,const char* file,int line)throw()
-			: m_error(error),m_line(line),m_msg(msg),m_file(file)
-		{
-			try
-			{
-				std::stringstream ss;
-				ss << "msg: " << msg <<"error:"<<error
-					<< "in file <" << file << "> line:" <<line;
-				m_msg = ss.str();
-			}
-			catch (...)
-			{
-			}
-		}
+class Exception : public std::exception
+{
+public:
+    Exception(const char* msg, int error, const char* file, int line)throw()
+        : m_error(error), m_line(line), m_msg(msg), m_file(file)
+    {
+        try
+        {
+            std::stringstream ss;
+            ss << "[" << file << ":" << line << "]|error: " << error << "|msg:" << msg;
+            m_msg = ss.str();
+        }
+        catch (...)
+        {
+        }
+    }
 
-		virtual ~Exception()throw()
-		{
-		}
+    virtual ~Exception()throw()
+    {
+    }
 
-		const char* what() const throw()
-		{
-			return m_msg.c_str();
-		}
+    const char* what() const throw()
+    {
+        return m_msg.c_str();
+    }
 
-		int GetError() const throw()
-		{
-			return m_error;
-		}
+    int GetError() const throw()
+    {
+        return m_error;
+    }
 
-		virtual const char* GetType() const throw()
-		{
-			return "Exception";
-		}
+    virtual const char* GetType() const throw()
+    {
+        return "Exception";
+    }
 
-	protected:
-		int m_error;
-		int m_line;
-		std::string m_msg;
-		std::string m_file;
-	};
+protected:
+    int m_error;
+    int m_line;
+    std::string m_msg;
+    std::string m_file;
+};
 }
 
 inline std::ostream& operator<<(std::ostream& os, const kpr::Exception& e)
 {
-	os <<"Type:"<<e.GetType() <<  e.what();
-	return os;
+    os << "Type:" << e.GetType() <<  e.what();
+    return os;
 }
 
 #define DEFINE_EXCEPTION(name) \
-class name : public kpr::Exception \
-{\
-public:\
-	name(const char* msg, int error,const char* file,int line) throw ()\
-	: Exception(msg,error,file,line) {}\
-	virtual const char* GetType() const throw()\
-	{\
-	return #name;\
-	}\
-};
+    class name : public kpr::Exception \
+    {\
+    public:\
+        name(const char* msg, int error,const char* file,int line) throw ()\
+            : Exception(msg,error,file,line) {}\
+        virtual const char* GetType() const throw()\
+        {\
+            return #name;\
+        }\
+    };
 
 namespace kpr
 {
-	DEFINE_EXCEPTION(SystemCallException);
-	DEFINE_EXCEPTION(NotImplementException);
-	DEFINE_EXCEPTION(InterruptedException);
+DEFINE_EXCEPTION(SystemCallException);
+DEFINE_EXCEPTION(NotImplementException);
+DEFINE_EXCEPTION(InterruptedException);
+DEFINE_EXCEPTION(FileUtilException);
+DEFINE_EXCEPTION(RefHandleNullException);
+
 };
 
 #define THROW_EXCEPTION(e,msg,err) throw e(msg,err,__FILE__,__LINE__);

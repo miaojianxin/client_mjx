@@ -21,52 +21,36 @@
 
 namespace kpr
 {
-	ThreadLocal::ThreadLocal()
-		: m_Key(0)
-	{
-#ifdef WIN32
-		m_Key = TlsAlloc();
-#else
-		int retcode = 0;
+ThreadLocal::ThreadLocal()
+    : m_Key(0)
+{
+    int retcode = 0;
 
-		retcode = pthread_key_create(&m_Key, 0);
-		if(retcode != 0)
-		{
-			THROW_EXCEPTION(SystemCallException,"pthread_key_create error",errno);
-		}
-#endif
-	}
+    retcode = pthread_key_create(&m_Key, 0);
+    if (retcode != 0)
+    {
+        THROW_EXCEPTION(SystemCallException, "pthread_key_create error", errno);
+    }
+}
 
-	ThreadLocal::~ThreadLocal()
-	{
-#ifdef WIN32
-		TlsFree(m_Key);
-#else
-		pthread_key_delete(m_Key);
-#endif
-	}
+ThreadLocal::~ThreadLocal()
+{
+    pthread_key_delete(m_Key);
+}
 
-	void* ThreadLocal::GetValue()
-	{
-		void* v;
-#ifdef WIN32
-		v = TlsGetValue(m_Key);
-#else
-		v = pthread_getspecific(m_Key);
-#endif
-		return v;
-	}
+void* ThreadLocal::GetValue()
+{
+    void* v;
+    v = pthread_getspecific(m_Key);
+    return v;
+}
 
-	void ThreadLocal::SetValue(void * value)
-	{
-#ifdef WIN32
-		TlsSetValue( m_Key, value);
-#else
-		int retcode = pthread_setspecific(m_Key, value);
-		if(retcode != 0)
-		{
-			THROW_EXCEPTION(SystemCallException,"pthread_setspecific error",errno);
-		}
-#endif
-	}
+void ThreadLocal::SetValue(void* value)
+{
+    int retcode = pthread_setspecific(m_Key, value);
+    if (retcode != 0)
+    {
+        THROW_EXCEPTION(SystemCallException, "pthread_setspecific error", errno);
+    }
+}
 }

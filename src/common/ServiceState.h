@@ -14,31 +14,18 @@
  * limitations under the License.
  */
 
-#if!defined __SERVICESTATE_H__
+#ifndef __SERVICESTATE_H__
 #define __SERVICESTATE_H__
 
-/**
- * 服务对象的状态，通常需要start，shutdown
- *
- */
-enum ServiceState
+namespace rmq
 {
-	/**
-	* 服务对象刚刚创建，但是未启动
-	*/
-	CREATE_JUST,
-	/**
-	* 服务启动成功
-	*/
-	RUNNING,
-	/**
-	* 服务已经关闭
-	*/
-	SHUTDOWN_ALREADY,
-	/**
-	* 服务启动失败
-	*/
-	START_FAILED
-};
+    enum ServiceState
+    {
+        CREATE_JUST,
+        RUNNING,
+        SHUTDOWN_ALREADY,
+        START_FAILED
+    };
+}
 
 #endif

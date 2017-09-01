@@ -13,20 +13,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#if!defined __TCPREQUESTPROCESSOR_H__
+#ifndef __TCPREQUESTPROCESSOR_H__
 #define __TCPREQUESTPROCESSOR_H__
 
-class RemotingCommand;
-
-/**
- * 接收请求处理器
- *
- */
-class TcpRequestProcessor
+namespace rmq
 {
-public:
-	virtual ~TcpRequestProcessor() {}
-	virtual RemotingCommand* processRequest(RemotingCommand* pRequest)=0;
-};
+	class RemotingCommand;
+	class TcpTransport;
+
+	class TcpRequestProcessor
+	{
+	public:
+	    virtual ~TcpRequestProcessor() {}
+	    virtual RemotingCommand* processRequest(TcpTransport* pTts, RemotingCommand* pRequest) = 0;
+	};
+}
 
 #endif

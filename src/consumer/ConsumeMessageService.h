@@ -13,30 +13,29 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 */
-#if!defined __CONSUMEMESSAGESERVICE_H__
+#ifndef __CONSUMEMESSAGESERVICE_H__
 #define __CONSUMEMESSAGESERVICE_H__
 
 #include <list>
 
-class MessageExt;
-class ProcessQueue;
-class MessageQueue;
-
-/**
-* 消费消息服务，公共接口
-*
-*/
-class ConsumeMessageService
+namespace rmq
 {
-public:
-	virtual ~ConsumeMessageService() {}
-	virtual void start()=0;
-	virtual void shutdown()=0;
-	virtual void updateCorePoolSize(int corePoolSize)=0;
-	virtual void submitConsumeRequest(std::list<MessageExt*>& msgs,
-									  ProcessQueue* pProcessQueue,
-									  MessageQueue& messageQueue,
-									  bool dispathToConsume)=0;
-};
+	class MessageExt;
+	class ProcessQueue;
+	class MessageQueue;
+
+	class ConsumeMessageService
+	{
+	public:
+	    virtual ~ConsumeMessageService() {}
+	    virtual void start() = 0;
+	    virtual void shutdown() = 0;
+	    virtual void updateCorePoolSize(int corePoolSize) = 0;
+	    virtual void submitConsumeRequest(std::list<MessageExt*>& msgs,
+	                                      ProcessQueue* pProcessQueue,
+	                                      const MessageQueue& messageQueue,
+	                                      bool dispathToConsume) = 0;
+	};
+}
 
 #endif

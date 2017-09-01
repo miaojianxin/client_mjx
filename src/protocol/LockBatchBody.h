@@ -14,7 +14,7 @@
 * limitations under the License.
 */
 
-#if!defined __LOCKBATCHBODY_H__
+#ifndef __LOCKBATCHBODY_H__
 #define __LOCKBATCHBODY_H__
 
 #include <string>
@@ -23,45 +23,51 @@
 #include "RemotingSerializable.h"
 #include "MessageQueue.h"
 
-class LockBatchRequestBody : public RemotingSerializable
+namespace rmq
 {
-public:
-	LockBatchRequestBody();
-	~LockBatchRequestBody();
+    class LockBatchRequestBody : public RemotingSerializable
+    {
+    public:
+        LockBatchRequestBody();
+        ~LockBatchRequestBody();
 
-	void Encode(std::string& outData);
+        void encode(std::string& outData);
+		std::string toString() const;
 
-	std::string getConsumerGroup();
-	void setConsumerGroup(const std::string& consumerGroup);
+        std::string getConsumerGroup();
+        void setConsumerGroup(const std::string& consumerGroup);
 
-	std::string getClientId();
-	void setClientId(const std::string& clientId);
+        std::string getClientId();
+        void setClientId(const std::string& clientId);
 
-	std::set<MessageQueue>& getMqSet();
-	void setMqSet(const std::set<MessageQueue>& mqSet);
+        std::set<MessageQueue>& getMqSet();
+        void setMqSet(const std::set<MessageQueue>& mqSet);
 
-private:
-	std::string m_consumerGroup;
-	std::string m_clientId;
-	std::set<MessageQueue> m_mqSet;
-};
+    private:
+        std::string m_consumerGroup;
+        std::string m_clientId;
+        std::set<MessageQueue> m_mqSet;
+    };
 
-class LockBatchResponseBody : public RemotingSerializable
-{
-public:
-	LockBatchResponseBody();
-	~LockBatchResponseBody();
+    class LockBatchResponseBody : public RemotingSerializable
+    {
+    public:
+        LockBatchResponseBody();
+        ~LockBatchResponseBody();
 
-	void Encode(std::string& outData);
+        void encode(std::string& outData);
+		std::string toString() const;
 
-	static LockBatchResponseBody* Decode(char* pData,int len);
+        static LockBatchResponseBody* decode(const char* pData, int len);
 
-	std::set<MessageQueue> getLockOKMQSet();
-	void setLockOKMQSet(const std::set<MessageQueue>& lockOKMQSet);
+        std::set<MessageQueue> getLockOKMQSet();
+        void setLockOKMQSet(const std::set<MessageQueue>& lockOKMQSet);
 
-private:
-	std::set<MessageQueue> m_lockOKMQSet;// Lock成功的队列集合
-};
+    private:
+        std::set<MessageQueue> m_lockOKMQSet;
+    };
 
-typedef LockBatchRequestBody UnlockBatchRequestBody;
+    typedef LockBatchRequestBody UnlockBatchRequestBody;
+}
+
 #endif

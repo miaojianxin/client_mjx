@@ -20,18 +20,18 @@
 
 namespace kpr
 {
-	class ThreadLocal
-	{
-	public:
-		ThreadLocal();
-		virtual ~ThreadLocal();
+class ThreadLocal
+{
+public:
+    ThreadLocal();
+    virtual ~ThreadLocal();
 
-		void* GetValue();
-		void SetValue(void* value);
+    void* GetValue();
+    void SetValue(void* value);
 
-	private:
-		ThreadKey	m_Key;
-	};
+private:
+    ThreadKey   m_Key;
+};
 };
 
 #endif

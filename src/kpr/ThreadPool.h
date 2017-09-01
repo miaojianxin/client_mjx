@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#if!defined __KPR_THREADPOOL_H__
+#ifndef __KPR_THREADPOOL_H__
 #define __KPR_THREADPOOL_H__
 
 #include<time.h>
@@ -27,93 +27,98 @@
 
 namespace kpr
 {
-	const int MAX_THREAD_COUNT = 300;
-	const int MIN_THREAD_COUNT = 5;
-	const int MAX_IDLE_THREAD_TIME = 300000;
-	const int THREAD_STEP = 10;
-	const int CHECK_IDLE_THREADS_INTERVAL = 30000;
+const int MAX_THREAD_COUNT = 300;
+const int MIN_THREAD_COUNT = 1;
+//const int MAX_IDLE_THREAD_TIME = 600000;
+const int MAX_IDLE_THREAD_TIME = 0;
+const int THREAD_STEP = 10;
+const int CHECK_IDLE_THREADS_INTERVAL = 30000;
 
-	class ThreadPool;
-	class ThreadPoolWorker : public kpr::Thread, public kpr::Monitor
-	{
-	public:
-		ThreadPoolWorker(ThreadPool* pThreadPool, const char* strName);
+class ThreadPool;
+class ThreadPoolWorker : public kpr::Thread, public kpr::Monitor
+{
+public:
+    ThreadPoolWorker(ThreadPool* pThreadPool, const char* strName);
 
-		virtual void Run();
-		void WakeUp();
-		void Stop();
-		bool IsWaiting();
-		bool IsIdle();
-		void SetIdle(bool idle);
-		int IdleTime(int idleTime);
+    virtual void Run();
+    void WakeUp();
+    void Stop();
+    bool IsWaiting();
+    bool IsIdle();
+    void SetIdle(bool idle);
+    int IdleTime(int idleTime);
 
-	private:
-		ThreadPool* m_pThreadPool;
-		bool m_canWork;
-		bool m_isWaiting;
-		bool m_stop;
-		int m_idleTime;
-		bool m_idle;
-	};
+private:
+    ThreadPool* m_pThreadPool;
+    bool m_canWork;
+    bool m_isWaiting;
+    bool m_stop;
+    int m_idleTime;
+    bool m_idle;
+};
+typedef kpr::RefHandleT<ThreadPoolWorker> ThreadPoolWorkerPtr;
 
-	DECLAREVAR(ThreadPoolWorker)
+class ThreadPoolManage : public kpr::Thread, public kpr::Monitor
+{
+public:
+    ThreadPoolManage(const char* name, ThreadPool* pThreadPool, int nCheckldleThreadsInterval);
 
-	class ThreadPoolManage : public kpr::Thread, public kpr::Monitor
-	{
-	public:
-		ThreadPoolManage(ThreadPool * pThreadPool, int nCheckldleThreadsInterval);
+    ~ThreadPoolManage();
+    virtual void Run();
+    void Stop();
 
-		~ThreadPoolManage();
-		virtual void Run();
-		void Stop();
+private:
+    ThreadPool* m_pThreadPool;
+    bool m_stop;
+    int m_checkIdleThreadsInterval;
+};
+typedef kpr::RefHandleT<ThreadPoolManage> ThreadPoolManagePtr;
 
-	private:
-		ThreadPool* m_pThreadPool;
-		bool m_stop;
-		int m_checkIdleThreadsInterval;
-	};
 
-	DECLAREVAR(ThreadPoolManage)
+class ThreadPool : public kpr::RefCount, public kpr::Monitor
+{
+public:
+    ThreadPool(const char* name,
+               int initCount,
+               int minCount,
+               int maxCount,
+               int step = THREAD_STEP,
+               int maxIdleTime = MAX_IDLE_THREAD_TIME,
+               int checkldleThreadsInterval = CHECK_IDLE_THREADS_INTERVAL);
 
-	class ThreadPool : public kpr::Monitor
-	{
-	public:
-		ThreadPool(int initCount,
-				   int minCount,
-				   int maxCount,
-				   int step = THREAD_STEP,
-				   int maxIdleTime = MAX_IDLE_THREAD_TIME,
-				   int checkldleThreadsInterval = CHECK_IDLE_THREADS_INTERVAL);
+    ~ThreadPool();
+    void Destroy();
 
-		~ThreadPool();
-		void Destroy();
+    int AddWork(ThreadPoolWorkPtr pWork);
+    ThreadPoolWorkPtr GetWork(ThreadPoolWorker* pWorker);
 
-		int AddWork(ThreadPoolWork* pWork);
-		ThreadPoolWork* GetWork(ThreadPoolWorker* pWorker);
+    void RemoveIdleThreads();
+    void RemoveThread(ThreadPoolWorker* pWorker);
 
-		void RemoveIdleThreads();
-		void RemoveThread(ThreadPoolWorker* pWorker);
+    bool WakeOneThread();
+    bool IsDestroy();
 
-		bool WakeOneThread();
-		bool IsDestroy();
+private:
+    void AddThreads(int count);
 
-	private:
-		void AddThreads(int count);
+private:
+    bool m_destroy;
+    int m_minCount;
+    int m_maxCount;
+    int m_maxIdleTime;
+    int m_count;
+    int m_step;
 
-	private:
-		bool m_destroy;
-		int m_minCount;
-		int m_maxCount;
-		int m_maxIdleTime;
-		int m_count;
-		int m_step;
+    char m_name[128];
+    unsigned int m_index;
+    unsigned long long m_lastRemoveIdleThreadsTime;
 
-		unsigned int m_index;
-		unsigned long long m_lastRemoveIdleThreadsTime;
-		ThreadPoolManage_var m_manager;
+    ThreadPoolManagePtr m_manager;
+    std::list<ThreadPoolWorkPtr> m_works;
+    std::list<ThreadPoolWorkerPtr> m_workers;
+};
 
-		std::list<ThreadPoolWork*> m_works;
-		std::list<ThreadPoolWorker_var> m_workers;
-	};
+typedef kpr::RefHandleT<ThreadPool> ThreadPoolPtr;
+
 }
 #endif

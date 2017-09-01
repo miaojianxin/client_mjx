@@ -17,10 +17,8 @@
 #define __KPR_THREAD_H__
 
 #include "KPRTypes.h"
-#include "RefCount.h"
 #include "RefHandle.h"
 #include "Mutex.h"
-#include "Logger.h"
 
 #ifdef Yield
 #undef Yield
@@ -28,52 +26,43 @@
 
 namespace kpr
 {
-	class Thread : public virtual RefCount
-	{
-	public:
-		Thread(const char* name=NULL);
-		virtual ~Thread();
+class Thread : public virtual kpr::RefCount
+{
+public:
+    Thread(const char* name = NULL);
+    virtual ~Thread();
 
-		virtual void Run();
-		void Start();
-		bool IsAlive() const;
-		void Join();
-		ThreadId   GetId() const;
+    virtual void Run();
+    void Start();
+    bool IsAlive() const;
+    void Join();
+    ThreadId   GetId() const;
 
-		void SetName(const char*);
-		const char* GetName() const;
-		const char* GetNameWithLockHeld() const;
+    void SetName(const char*);
+    const char* GetName() const;
 
-		void Startup();
-		void Cleanup();
+    void Startup();
+    void Cleanup();
 
-		static void  Sleep(long millis, int nano = 0);
-		static void  Yield();
+    static void  Sleep(long millis, int nano = 0);
+    static void  Yield();
 
-	private:
-		Thread(const Thread&);
-		const Thread& operator=(const Thread&);
+private:
+    Thread(const Thread&);
+    const Thread& operator=(const Thread&);
+    static void* ThreadRoute(void* pArg);
 
-#ifdef WIN32
-		static unsigned __stdcall ThreadRoute(void* pArg);
-#else
-		static void* ThreadRoute(void* pArg);
-#endif
+private:
+    ThreadId m_threadId;
+    unsigned int m_threadNumber;
+    char m_name[128];
+    bool m_started;
+    Mutex m_mutex;
 
-	private:
-#ifdef WIN32
-		HANDLE m_handle;
-#endif
-		ThreadId m_threadId;
-		unsigned int m_threadNumber;
-		char* m_name;
-		bool m_started;
-		Mutex m_mutex;
+    static kpr::AtomicInteger s_threadNumber;
+};
+typedef kpr::RefHandleT<Thread> ThreadPtr;
 
-		static AtomicInteger s_threadNumber;
-	};
-
-	DECLAREVAR(Thread)
 }
 
 #endif

@@ -13,7 +13,7 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 */
-#if!defined __REBALANCEIMPL_H__
+#ifndef __REBALANCEIMPL_H__
 #define __REBALANCEIMPL_H__
 
 #include <map>
@@ -26,78 +26,77 @@
 #include "ProcessQueue.h"
 #include "PullRequest.h"
 #include "SubscriptionData.h"
-#include "Logger.h"
 
-class AllocateMessageQueueStrategy;
-class MQClientFactory;
-
-/**
-* Rebalance的具体实现
-*
-*/
-class RebalanceImpl
+namespace rmq
 {
-public:
-	RebalanceImpl(const std::string& consumerGroup, 
-		MessageModel messageModel,
-		AllocateMessageQueueStrategy* pAllocateMessageQueueStrategy, 
-		MQClientFactory* pMQClientFactory);
-	virtual ~RebalanceImpl();
+    class AllocateMessageQueueStrategy;
+    class MQClientFactory;
 
-	virtual void messageQueueChanged(const std::string& topic, 
-		std::set<MessageQueue>& mqAll, 
-		std::set<MessageQueue>& mqDivided)=0;
-	virtual void removeUnnecessaryMessageQueue(MessageQueue& mq, ProcessQueue& pq)=0;
-	virtual void dispatchPullRequest(std::list<PullRequest*>& pullRequestList)=0;
-	virtual long long computePullFromWhere(MessageQueue& mq)=0;
+    class RebalanceImpl
+    {
+    public:
+        RebalanceImpl(const std::string& consumerGroup,
+                      MessageModel messageModel,
+                      AllocateMessageQueueStrategy* pAllocateMessageQueueStrategy,
+                      MQClientFactory* pMQClientFactory);
+        virtual ~RebalanceImpl();
 
-	bool lock(MessageQueue& mq);
-	void lockAll();
+        virtual void messageQueueChanged(const std::string& topic,
+                                         std::set<MessageQueue>& mqAll,
+                                         std::set<MessageQueue>& mqDivided) = 0;
+        virtual bool removeUnnecessaryMessageQueue(MessageQueue& mq, ProcessQueue& pq) = 0;
+        virtual void dispatchPullRequest(std::list<PullRequest*>& pullRequestList) = 0;
+        virtual long long computePullFromWhere(MessageQueue& mq) = 0;
+		virtual ConsumeType consumeType() = 0;
 
-	void unlock(MessageQueue& mq, bool oneway);
-	void unlockAll(bool oneway);
+        bool lock(MessageQueue& mq);
+        void lockAll();
 
-	void doRebalance();
+        void unlock(MessageQueue& mq, bool oneway);
+        void unlockAll(bool oneway);
 
-	std::map<std::string, SubscriptionData>& getSubscriptionInner();
-	std::map<MessageQueue, ProcessQueue*>& getProcessQueueTable();
-	std::map<std::string, std::set<MessageQueue> >& getTopicSubscribeInfoTable();
+        void doRebalance();
 
-	std::string& getConsumerGroup();
-	void setConsumerGroup(const std::string& consumerGroup);
+        std::map<MessageQueue, ProcessQueue*>& getProcessQueueTable();
+		kpr::RWMutex& getProcessQueueTableLock();
+		std::map<std::string, SubscriptionData>& getSubscriptionInner();
+        std::map<std::string, std::set<MessageQueue> >& getTopicSubscribeInfoTable();
 
-	MessageModel getMessageModel();
-	void setMessageModel(MessageModel messageModel);
+        std::string& getConsumerGroup();
+        void setConsumerGroup(const std::string& consumerGroup);
 
-	AllocateMessageQueueStrategy* getAllocateMessageQueueStrategy();
-	void setAllocateMessageQueueStrategy(AllocateMessageQueueStrategy* pAllocateMessageQueueStrategy);
-	
-	MQClientFactory* getmQClientFactory();
-	void setmQClientFactory(MQClientFactory* pMQClientFactory);
+        MessageModel getMessageModel();
+        void setMessageModel(MessageModel messageModel);
 
-private:
-	std::map<std::string, std::set<MessageQueue> > buildProcessQueueTableByBrokerName();
-	void rebalanceByTopic(const std::string& topic);
-	bool updateProcessQueueTableInRebalance(const std::string& topic, std::set<MessageQueue>& mqSet);
-	void truncateMessageQueueNotMyTopic();
+        AllocateMessageQueueStrategy* getAllocateMessageQueueStrategy();
+        void setAllocateMessageQueueStrategy(AllocateMessageQueueStrategy* pAllocateMessageQueueStrategy);
 
-protected:
-	// 分配好的队列，消息存储也在这里
-	std::map<MessageQueue, ProcessQueue*> m_processQueueTable;
-	kpr::Mutex m_processQueueTableLock;
+        MQClientFactory* getmQClientFactory();
+        void setmQClientFactory(MQClientFactory* pMQClientFactory);
 
-	// 可以订阅的所有队列（定时从Name Server更新最新版本）
-	std::map<std::string, std::set<MessageQueue> > m_topicSubscribeInfoTable;
-	kpr::Mutex m_topicSubscribeInfoTableLock;
+		void removeProcessQueue(const MessageQueue& mq);
 
-	// 订阅关系，用户配置的原始数据 key <topic> value <SubscriptionData>
-	std::map<std::string, SubscriptionData> m_subscriptionInner;
-	kpr::Mutex m_subscriptionInnerLock;
+    private:
+        std::map<std::string, std::set<MessageQueue> > buildProcessQueueTableByBrokerName();
+        void rebalanceByTopic(const std::string& topic);
+        bool updateProcessQueueTableInRebalance(const std::string& topic, std::set<MessageQueue>& mqSet);
+        void truncateMessageQueueNotMyTopic();
 
-	std::string m_consumerGroup;
-	MessageModel m_messageModel;
-	AllocateMessageQueueStrategy* m_pAllocateMessageQueueStrategy;
-	MQClientFactory* m_pMQClientFactory;
-};
+    protected:
+        std::map<MessageQueue, ProcessQueue*> m_processQueueTable;
+        kpr::RWMutex m_processQueueTableLock;
+
+        std::map<std::string, std::set<MessageQueue> > m_topicSubscribeInfoTable;
+        kpr::Mutex m_topicSubscribeInfoTableLock;
+
+        std::map<std::string, SubscriptionData> m_subscriptionInner;
+        kpr::Mutex m_subscriptionInnerLock;
+
+        std::string m_consumerGroup;
+        MessageModel m_messageModel;
+        AllocateMessageQueueStrategy* m_pAllocateMessageQueueStrategy;
+        MQClientFactory* m_pMQClientFactory;
+    };
+}
 
 #endif

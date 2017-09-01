@@ -13,7 +13,7 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 */
-#if!defined __REMOTEBROKEROFFSETSTORE_H__
+#ifndef __REMOTEBROKEROFFSETSTORE_H__
 #define __REMOTEBROKEROFFSETSTORE_H__
 
 #include "OffsetStore.h"
@@ -24,37 +24,38 @@
 #include "AtomicValue.h"
 #include "Mutex.h"
 
-class MQClientFactory;
-
-/**
-* 消费进度存储到远端Broker，比较可靠
-* 
-*/
-class RemoteBrokerOffsetStore : public OffsetStore
+namespace rmq
 {
-public:
-	RemoteBrokerOffsetStore(MQClientFactory* pMQClientFactory, const std::string& groupName) ;
-	
-	void load();
-	void updateOffset(MessageQueue& mq, long long offset, bool increaseOnly);
-	long long readOffset(MessageQueue& mq, ReadOffsetType type);
-	void persistAll(std::set<MessageQueue>& mqs);
-	void persist(MessageQueue& mq);
+    class MQClientFactory;
 
-private:
-	/**
-	* 更新Consumer Offset，在Master断网期间，可能会更新到Slave，这里需要优化，或者在Slave端优化， TODO
-	*/
-	void updateConsumeOffsetToBroker(const MessageQueue& mq, long long offset);
-	long long fetchConsumeOffsetFromBroker(MessageQueue& mq);
-	void removeOffset(MessageQueue& mq) ;
+    /**
+    * offset remote store
+    *
+    */
+    class RemoteBrokerOffsetStore : public OffsetStore
+    {
+    public:
+        RemoteBrokerOffsetStore(MQClientFactory* pMQClientFactory, const std::string& groupName) ;
 
-private:
-	MQClientFactory* m_pMQClientFactory;
-	std::string m_groupName;
-	AtomicLong m_storeTimesTotal;
-	std::map<MessageQueue, AtomicLong*> m_offsetTable;
-	kpr::Mutex m_tableMutex;
-};
+        void load();
+        void updateOffset(const MessageQueue& mq, long long offset, bool increaseOnly);
+        long long readOffset(const MessageQueue& mq, ReadOffsetType type);
+        void persistAll(std::set<MessageQueue>& mqs);
+        void persist(const MessageQueue& mq);
+        void removeOffset(const MessageQueue& mq) ;
+        std::map<MessageQueue, long long> cloneOffsetTable(const std::string& topic);
+
+    private:
+        void updateConsumeOffsetToBroker(const MessageQueue& mq, long long offset);
+        long long fetchConsumeOffsetFromBroker(const MessageQueue& mq);
+
+    private:
+        MQClientFactory* m_pMQClientFactory;
+        std::string m_groupName;
+        kpr::AtomicInteger m_storeTimesTotal;
+        std::map<MessageQueue, kpr::AtomicLong> m_offsetTable;
+        kpr::RWMutex m_tableMutex;
+    };
+}
 
 #endif

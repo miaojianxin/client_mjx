@@ -20,43 +20,35 @@
 
 namespace kpr
 {
-#ifdef WIN32
-	class CondImpl;
-#endif
+class Mutex;
+class RWMutex;
+class RecursiveMutex;
 
-	class Mutex;
-	class RecursiveMutex;
+class Condition
+{
+public:
+    Condition();
+    ~Condition();
+    void Wait(Mutex& mutex);
 
-	class Condition
-	{
-	public:
-		Condition();
-		~Condition();
-		void Wait(Mutex& mutex);
+    bool Wait(Mutex& mutex, long timeout);
 
-		bool Wait(Mutex& mutex, long timeout);
+    void Wait(RecursiveMutex& mutex);
 
-		void Wait(RecursiveMutex& mutex);
+    bool Wait(RecursiveMutex& mutex, long timeout);
 
-		bool Wait(RecursiveMutex& mutex, long timeout);
+    void Notify();
 
-		void Notify();
+    void NotifyAll();
 
-		void NotifyAll();
+private:
+    bool  wait(Mutex&, long timeout);
+    bool  wait(RecursiveMutex&, long timeout);
 
-	private:
-		bool  wait(Mutex&, long timeout);
-		bool  wait(RecursiveMutex&, long timeout);
+    Condition(const Condition&);
+    void operator=(const Condition&);
 
-		Condition(const Condition&);
-		void operator=(const Condition&);
-
-#ifdef WIN32
-		CondImpl* m_impl;
-#else
-		pthread_cond_t m_cond;
-#endif
-
-	};
+    pthread_cond_t m_cond;
+};
 }
 #endif

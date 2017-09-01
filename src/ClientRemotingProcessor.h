@@ -14,29 +14,32 @@
 * limitations under the License.
 */
 
-#if!defined __CLIENTREMOTINGPROCESSOR_H__
+#ifndef __CLIENTREMOTINGPROCESSOR_H__
 #define __CLIENTREMOTINGPROCESSOR_H__
 
 #include "TcpRequestProcessor.h"
 
-class MQClientFactory;
-class RemotingCommand;
-
-/**
-* Client接收Broker的回调操作，例如事务回调，或者其他管理类命令回调
-*
-*/
-class ClientRemotingProcessor : public TcpRequestProcessor
+namespace rmq
 {
-public:
-	ClientRemotingProcessor(MQClientFactory* pMQClientFactory);
+	class MQClientFactory;
+	class RemotingCommand;
 
-	RemotingCommand* processRequest(RemotingCommand* pRequest);
-	RemotingCommand* checkTransactionState(RemotingCommand* pRequest);
-	RemotingCommand* notifyConsumerIdsChanged(RemotingCommand* pRequest);
+	class ClientRemotingProcessor : public TcpRequestProcessor
+	{
+	public:
+	    ClientRemotingProcessor(MQClientFactory* pMQClientFactory);
 
-private:
-	MQClientFactory* m_pMQClientFactory;
-};
+	    RemotingCommand* processRequest(TcpTransport* pTts, RemotingCommand* pRequest);
+	    RemotingCommand* checkTransactionState(TcpTransport* pTts, RemotingCommand* pRequest);
+	    RemotingCommand* notifyConsumerIdsChanged(TcpTransport* pTts, RemotingCommand* pRequest);
+	    RemotingCommand* resetOffset(TcpTransport* pTts, RemotingCommand* pRequest);
+	    RemotingCommand* getConsumeStatus(TcpTransport* pTts, RemotingCommand* pRequest);
+	    RemotingCommand* getConsumerRunningInfo(TcpTransport* pTts, RemotingCommand* pRequest);
+	    RemotingCommand* consumeMessageDirectly(TcpTransport* pTts, RemotingCommand* pRequest);
+
+	private:
+	    MQClientFactory* m_pMQClientFactory;
+	};
+}
 
 #endif

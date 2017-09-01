@@ -13,71 +13,44 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 */
-#if!defined __PULLMESSAGESERVICE_H__
+#ifndef __PULLMESSAGESERVICE_H__
 #define __PULLMESSAGESERVICE_H__
 
-#include "ServiceThread.h"
 #include <list>
+#include "RocketMQClient.h"
+#include "ServiceThread.h"
 #include "TimerThread.h"
-#include "Logger.h"
+#include "PullRequest.h"
 
-class MQClientFactory;
-class MQConsumerInner;
-class PullRequest;
-
-/**
-* 长轮询拉消息服务，单线程异步拉取
-*
-*/
-class PullMessageService : public ServiceThread
+namespace rmq
 {
-public:
-	PullMessageService(MQClientFactory* pMQClientFactory);
-	~PullMessageService();
+    class MQClientFactory;
+    class MQConsumerInner;
+    class PullRequest;
 
-	/**
-	* 只定时一次
-	*/
-	void executePullRequestLater(PullRequest* pPullRequest, long timeDelay);
+    class PullMessageService : public ServiceThread
+    {
+    public:
+        PullMessageService(MQClientFactory* pMQClientFactory);
+        ~PullMessageService();
 
-	/**
-	* 立刻执行PullRequest
-	*/
-	void executePullRequestImmediately(PullRequest* pPullRequest);
+        void executePullRequestLater(PullRequest* pPullRequest, long timeDelay);
+		void executeTaskLater(kpr::TimerHandler* pHandler, long timeDelay);
 
-	
+        void executePullRequestImmediately(PullRequest* pPullRequest);
+        std::string getServiceName();
 
-	std::string getServiceName();
+        void Run();
+    private:
+        void pullMessage(PullRequest* pPullRequest);
 
-	void Run();
-
-	class MyTimeHandler :public kpr::TimerHandler
-	{
-	public:
-		MyTimeHandler(PullMessageService* pService, PullRequest* pPullRequest)
-			:m_pService(pService),m_pPullRequest(pPullRequest)
-		{
-
-		}
-
-		void OnTimeOut(unsigned int timerID)
-		{
-			m_pService->executePullRequestImmediately(m_pPullRequest);
-			delete this;
-		}
-
-	private:
-		PullMessageService* m_pService;
-		PullRequest* m_pPullRequest;
-	};
-private:
-	void pullMessage(PullRequest* pPullRequest);
-
-private:
-	std::list<PullRequest*> m_pullRequestQueue;
-	kpr::Mutex m_lock;
-	MQClientFactory* m_pMQClientFactory;
-	kpr::TimerThread_var m_TimeThread;
-};
+    private:
+        std::list<PullRequest*> m_pullRequestQueue;
+        kpr::Mutex m_lock;
+        MQClientFactory* m_pMQClientFactory;
+        kpr::TimerThreadPtr m_TimerThread;
+    };
+	typedef kpr::RefHandleT<PullMessageService> PullMessageServicePtr;
+}
 
 #endif

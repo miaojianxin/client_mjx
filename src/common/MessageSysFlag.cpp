@@ -16,6 +16,9 @@
 
 #include "MessageSysFlag.h"
 
+namespace rmq
+{
+
 /**
 * SysFlag
 */
@@ -24,19 +27,21 @@ int MessageSysFlag::MultiTagsFlag = (0x1 << 1);
 
 /**
 * 7 6 5 4 3 2 1 0<br>
-* SysFlag 事务相关，从左属，2与3
+* SysFlag for transaction
 */
 int MessageSysFlag::TransactionNotType = (0x0 << 2);
 int MessageSysFlag::TransactionPreparedType = (0x1 << 2);
 int MessageSysFlag::TransactionCommitType = (0x2 << 2);
 int MessageSysFlag::TransactionRollbackType = (0x3 << 2);
 
-int MessageSysFlag::getTransactionValue(int flag) 
+int MessageSysFlag::getTransactionValue(int flag)
 {
-	return flag & TransactionRollbackType;
+    return flag & TransactionRollbackType;
 }
 
-int MessageSysFlag::resetTransactionValue(int flag, int type) 
+int MessageSysFlag::resetTransactionValue(int flag, int type)
 {
-	return (flag & (~TransactionRollbackType)) | type;
+    return (flag & (~TransactionRollbackType)) | type;
+}
+
 }

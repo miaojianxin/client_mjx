@@ -13,24 +13,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#if!defined __PULLCALLBACK_H__
-#define __PULLCALLBACK_H__
+#ifndef __RMQ_PULLCALLBACK_H__
+#define __RMQ_PULLCALLBACK_H__
 
-#include "PullResult.h"
 #include "RocketMQClient.h"
+#include "PullResult.h"
 
-class MQException;
-
-/**
- * 异步拉消息回调接口
- *
- */
-class ROCKETMQCLIENT_API PullCallback
+namespace rmq
 {
-public:
-	virtual ~PullCallback() {}
-	virtual void onSuccess(PullResult& pullResult)=0;
-	virtual void onException(MQException& e)=0;
-};
+	class MQException;
+
+	/**
+	 * PullCallback
+	 *
+	 */
+	class PullCallback
+	{
+	public:
+		virtual ~PullCallback() {}
+		virtual void onSuccess(PullResult& pullResult)=0;
+		virtual void onException(MQException& e)=0;
+	};
+}
 
 #endif

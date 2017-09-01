@@ -17,27 +17,26 @@
 #define __KPR_SEMAPHORE_H__
 
 #include "KPRTypes.h"
-
 #include <errno.h>
+
 namespace kpr
 {
-	class Semaphore
-	{
-	public:
-		Semaphore(long initial_count = 0);
-		~Semaphore();
 
-		bool Wait();
-		bool Wait(long timeout);
+class Semaphore
+{
+public:
+    Semaphore(long initial_count = 0);
+    ~Semaphore();
 
-		void Release(int count = 1);
+	int GetValue();
+    bool Wait();
+    bool Wait(long timeout);
 
-	private:
-#ifdef WIN32
-		HANDLE m_sem;
-#else
-		sem_t m_sem;
-#endif
-	};
+    void Release(int count = 1);
+
+private:
+    sem_t m_sem;
+};
 }
+
 #endif

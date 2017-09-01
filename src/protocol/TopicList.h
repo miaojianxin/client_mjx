@@ -13,37 +13,48 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 */
-#if!defined __TOPICLIST_H__
+#ifndef __TOPICLIST_H__
 #define __TOPICLIST_H__
 
 #include <set>
 #include <string>
+#include <UtilAll.h>
 
-class TopicList : public RemotingSerializable
+namespace rmq
 {
-public:
-	static TopicList* Decode(char* pData,int len)
-	{
-		return new TopicList();
-	}
+    class TopicList : public RemotingSerializable
+    {
+    public:
+        static TopicList* decode(const char* pData, int len)
+        {
+            return new TopicList();
+        }
 
-	void Encode(std::string& outData)
-	{
+        void encode(std::string& outData)
+        {
+        }
 
-	}
+		std::string toString() const
+		{
+			std::stringstream ss;
+			ss << "{topicList=" << UtilAll::toString(m_topicList)
+			   << "}";
+			return ss.str();
+		}
 
-	const std::set<std::string>& getTopicList()
-	{
-		return m_topicList;
-	}
+        const std::set<std::string>& getTopicList()
+        {
+            return m_topicList;
+        }
 
-	void setTopicList(const std::set<std::string>& topicList)
-	{
-		m_topicList = topicList;
-	}
+        void setTopicList(const std::set<std::string>& topicList)
+        {
+            m_topicList = topicList;
+        }
 
-private:
-	std::set<std::string> m_topicList;
-};
+    private:
+        std::set<std::string> m_topicList;
+    };
+}
 
 #endif

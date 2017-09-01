@@ -18,24 +18,74 @@
 
 namespace kpr
 {
-	template <class T>
-	class ScopedLock
-	{
-	public:
-		ScopedLock(const T& mutex)
-			: m_mutex(mutex)
-		{
-			m_mutex.Lock();
-		}
+template <class T>
+class ScopedLock
+{
+public:
+    ScopedLock(const T& mutex)
+        : m_mutex(mutex)
+    {
+        m_mutex.Lock();
+    }
 
-		~ScopedLock()
-		{
-			m_mutex.Unlock();
-		}
+    ~ScopedLock()
+    {
+        m_mutex.Unlock();
+    }
 
-	private:
-		const T& m_mutex;
-	};
+private:
+    const T& m_mutex;
+};
+
+
+template <class T>
+class ScopedRLock
+{
+public:
+    ScopedRLock(const T& mutex)
+        : m_mutex(mutex)
+    {
+        m_mutex.ReadLock();
+        m_acquired = true;
+    }
+
+    ~ScopedRLock()
+    {
+        if (m_acquired)
+        {
+            m_mutex.Unlock();
+        }
+    }
+
+private:
+    const T& m_mutex;
+    mutable bool m_acquired;
+};
+
+
+template <class T>
+class ScopedWLock
+{
+public:
+    ScopedWLock(const T& mutex)
+        : m_mutex(mutex)
+    {
+        m_mutex.WriteLock();
+        m_acquired = true;
+    }
+
+    ~ScopedWLock()
+    {
+        if (m_acquired)
+        {
+            m_mutex.Unlock();
+        }
+    }
+
+private:
+    const T& m_mutex;
+    mutable bool m_acquired;
+};
 }
 
 #endif

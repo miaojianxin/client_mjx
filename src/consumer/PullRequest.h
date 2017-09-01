@@ -14,47 +14,46 @@
 * limitations under the License.
 */
 
-#if!defined __PULLREQUEST_H__
+#ifndef __PULLREQUEST_H__
 #define __PULLREQUEST_H__
 
 #include <string>
+#include <sstream>
+
 #include "MessageQueue.h"
 #include "ProcessQueue.h"
 
-/**
-* 拉消息请求
-*
-*/
-class PullRequest
+namespace rmq
 {
-public:
-	virtual ~PullRequest();
+    class PullRequest
+    {
+    public:
+        virtual ~PullRequest();
 
-	std::string getConsumerGroup();
-	void setConsumerGroup(const std::string& consumerGroup);
+        std::string getConsumerGroup();
+        void setConsumerGroup(const std::string& consumerGroup);
 
-	MessageQueue* getMessageQueue();
-	void setMessageQueue(MessageQueue* pMessageQueue);
+        MessageQueue& getMessageQueue();
+        void setMessageQueue(const MessageQueue& messageQueue);
 
-	long long getNextOffset();
+        long long getNextOffset();
+        void setNextOffset(long long nextOffset);
 
-	void setNextOffset(long long nextOffset);
+        int hashCode();
+        std::string toString() const;
 
-	std::string toString();
+        bool operator==(const PullRequest& other);
 
-	int hashCode();
+        ProcessQueue* getProcessQueue();
+        void setProcessQueue(ProcessQueue* pProcessQueue);
 
-	bool operator==(const PullRequest& other);
+    private:
+        std::string m_consumerGroup;
+        MessageQueue m_messageQueue;
 
-	ProcessQueue* getProcessQueue();
-	void setProcessQueue(ProcessQueue* pProcessQueue);
-
-private:
-	std::string m_consumerGroup;
-	MessageQueue* m_pMessageQueue;
-	ProcessQueue* m_pProcessQueue;
-	// hashCode与equals方法不包含此字段
-	long long m_nextOffset;
-};
+        ProcessQueue* m_pProcessQueue;
+        long long m_nextOffset;
+    };
+}
 
 #endif

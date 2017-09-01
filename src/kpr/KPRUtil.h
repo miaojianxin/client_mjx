@@ -13,29 +13,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#if!defined __KPR_UTIL_H__
+#ifndef __KPR_UTIL_H__
 #define __KPR_UTIL_H__
 
-#ifdef WIN32
-#   include <sys/timeb.h>
-#   include <process.h>
-#else
-#   include <unistd.h>
-#   include <sys/types.h>
-#   include <sys/time.h>
-#endif
-
+#include <stdio.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/time.h>
 #include <stdlib.h>
-#include <chrono>
-#include <assert.h>
 #include <string>
 
-#ifndef WIN32
-struct timespec CalcAbsTime(long timeout);
-#endif
 
-unsigned long long GetCurrentTimeMillis();
+class KPRUtil
+{
+public:
+	static struct timespec CalcAbsTime(long timeout);
+	static unsigned long long GetCurrentTimeMillis();
+	static long long str2ll(const char* str);
+    static std::string lower(const std::string& s);
+    static std::string upper(const std::string& s);
+};
 
-long long str2ll(const char *str);
 
 #endif

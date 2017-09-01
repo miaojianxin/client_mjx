@@ -13,71 +13,83 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 */
-#if!defined __KPR_TIMERTASKMANAGER_H__
+#ifndef __KPR_TIMERTASKMANAGER_H__
 #define __KPR_TIMERTASKMANAGER_H__
 
 #include <list>
 #include <map>
 
+#include "RocketMQClient.h"
 #include "TimerThread.h"
+#include "ThreadPool.h"
 #include "ThreadPoolWork.h"
-
-class TimerTask : public ThreadPoolWork
-{
-public:
-	TimerTask()
-		:m_isProcessing(false)
-	{
-
-	}
-
-	virtual void Do()
-	{
-		DoTask();
-		m_isProcessing = false;
-	}
-
-	bool IsProcessing()
-	{
-		return m_isProcessing;
-	}
-
-	void SetProcessing(bool isProcessing)
-	{
-		m_isProcessing = isProcessing;
-	}
-
-	virtual void DoTask()=0;
-
-private:
-	bool m_isProcessing;
-};
 
 namespace kpr
 {
-	class ThreadPool;
 
-	class TimerTaskManager : public TimerHandler
+class TimerTask : public kpr::ThreadPoolWork
+{
+public:
+    TimerTask()
+        : m_isProcessing(false)
+    {
+    }
+
+	virtual ~TimerTask()
 	{
-	public:
-		TimerTaskManager();
-		virtual ~TimerTaskManager();
+	}
 
-		int Init(int maxThreadCount, int checklnteval);
-		unsigned int RegisterTimer(unsigned int initialDelay, unsigned int elapse, TimerTask* pHandler);
-		bool UnRegisterTimer(unsigned int timerId);
-		bool ResetTimer(unsigned int timerId);
-		void Close();
+    virtual void Do()
+    {
+		try
+		{
+        	DoTask();
+		}
+		catch(...)
+		{
+			RMQ_ERROR("TimerTask exception");
+		}
+        m_isProcessing = false;
+    }
 
-		virtual void OnTimeOut(unsigned int timerId);
+    bool IsProcessing()
+    {
+        return m_isProcessing;
+    }
 
-	private:
-		std::map<unsigned int, TimerTask*> m_timerTasks;
-		kpr::Mutex m_mutex;
-		unsigned int m_checklnterval;
+    void SetProcessing(bool isProcessing)
+    {
+        m_isProcessing = isProcessing;
+    }
 
-		TimerThread_var m_timerThread;
-		kpr::ThreadPool* m_pThreadPool;
-	};
+    virtual void DoTask() = 0;
+
+private:
+    bool m_isProcessing;
+};
+typedef kpr::RefHandleT<TimerTask> TimerTaskPtr;
+
+
+class TimerTaskManager : public TimerHandler
+{
+public:
+    TimerTaskManager();
+    virtual ~TimerTaskManager();
+
+    int Init(int maxThreadCount, int checklnteval);
+    unsigned int RegisterTimer(unsigned int initialDelay, unsigned int elapse, TimerTaskPtr pTask);
+    bool UnRegisterTimer(unsigned int timerId);
+    bool ResetTimer(unsigned int timerId);
+    void Stop();
+
+    virtual void OnTimeOut(unsigned int timerId);
+
+private:
+    std::map<unsigned int, TimerTaskPtr> m_timerTasks;
+    kpr::Mutex m_mutex;
+    TimerThreadPtr m_timerThread;
+    kpr::ThreadPoolPtr m_pThreadPool;
+};
+
 }
 #endif

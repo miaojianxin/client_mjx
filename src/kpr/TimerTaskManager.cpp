@@ -19,75 +19,73 @@
 
 namespace kpr
 {
-	TimerTaskManager::TimerTaskManager()
-	{
+TimerTaskManager::TimerTaskManager()
+{
+}
 
-	}
+TimerTaskManager::~TimerTaskManager()
+{
+}
 
-	TimerTaskManager::~TimerTaskManager()
-	{
-		delete m_pThreadPool;
-	}
+int TimerTaskManager::Init(int maxThreadCount, int checklnteval)
+{
+    try
+    {
+        m_pThreadPool = new ThreadPool("TimerThreadPool", 5, 5, maxThreadCount);
+        m_timerThread = new TimerThread("TimerThread", checklnteval);
+        m_timerThread->Start();
+    }
+    catch (...)
+    {
+        return -1;
+    }
 
-	int TimerTaskManager::Init(int maxThreadCount, int checklnteval)
-	{
-		try
-		{
-			m_pThreadPool = new ThreadPool(3, 3, maxThreadCount);
+    return 0;
+}
 
-			m_timerThread = new TimerThread("TimerThread", checklnteval);
-			m_timerThread->Start();
-		}
-		catch (...)
-		{
-			return -1;
-		}
+unsigned int TimerTaskManager::RegisterTimer(unsigned int initialDelay, unsigned int elapse, TimerTaskPtr pTask)
+{
+    unsigned int id = m_timerThread->RegisterTimer(initialDelay, elapse, this, true);
 
-		return 0;
-	}
+    kpr::ScopedLock<kpr::Mutex> lock(m_mutex);
+    m_timerTasks[id] = pTask;
 
-	unsigned int TimerTaskManager::RegisterTimer(unsigned int initialDelay, unsigned int elapse, TimerTask* pHandler)
-	{
-		unsigned int id = m_timerThread->RegisterTimer(initialDelay, elapse,this);
+    return id;
+}
 
-		kpr::ScopedLock<kpr::Mutex> lock(m_mutex);
-		m_timerTasks[id] = pHandler;
+bool TimerTaskManager::UnRegisterTimer(unsigned int timerId)
+{
+    bool ret = m_timerThread->UnRegisterTimer(timerId);
 
-		return id;
-	}
+    kpr::ScopedLock<kpr::Mutex> lock(m_mutex);
+    m_timerTasks.erase(timerId);
 
-	bool TimerTaskManager::UnRegisterTimer(unsigned int timerId)
-	{
-		bool ret = m_timerThread->UnRegisterTimer(timerId);
+    return ret;
+}
 
-		kpr::ScopedLock<kpr::Mutex> lock(m_mutex);
-		m_timerTasks.erase(timerId);
+bool TimerTaskManager::ResetTimer(unsigned int timerId)
+{
+    return m_timerThread->ResetTimer(timerId);
+}
 
-		return ret;
-	}
+void TimerTaskManager::OnTimeOut(unsigned int timerId)
+{
+    kpr::ScopedLock<kpr::Mutex> lock(m_mutex);
+    std::map<unsigned int, TimerTaskPtr>::iterator it = m_timerTasks.find(timerId);
+    if (it != m_timerTasks.end())
+    {
+        if (!it->second->IsProcessing())
+        {
+            it->second->SetProcessing(true);
+            m_pThreadPool->AddWork((it->second).ptr());
+        }
+    }
+}
 
-	bool TimerTaskManager::ResetTimer(unsigned int timerId)
-	{
-		return m_timerThread->ResetTimer(timerId);
-	}
-
-	void TimerTaskManager::OnTimeOut(unsigned int timerId)
-	{
-		kpr::ScopedLock<kpr::Mutex> lock(m_mutex);
-		std::map<unsigned int, TimerTask*>::iterator it = m_timerTasks.find(timerId);
-		if (it != m_timerTasks.end())
-		{
-			if(!it->second->IsProcessing())
-			{
-				it->second->SetProcessing(true);
-				m_pThreadPool->AddWork(it->second);
-			}
-		}
-	}
-
-	void TimerTaskManager::Close()
-	{
-		m_timerThread->Close();
-		m_pThreadPool->Destroy();
-	}
+void TimerTaskManager::Stop()
+{
+    m_timerThread->Stop();
+    m_timerThread->Join();
+    m_pThreadPool->Destroy();
+}
 }

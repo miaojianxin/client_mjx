@@ -1,5 +1,5 @@
 /**
-* Copyright (C) 2013 kangliqiang ,kangliq@163.com
+* Copyright (C) 2013 suwenkuang ,hooligan_520@qq.com
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -14,40 +14,48 @@
 * limitations under the License.
 */
 
-#if!defined __LOCALFILEOFFSETSTORE_H__
+#ifndef __LOCALFILEOFFSETSTORE_H__
 #define __LOCALFILEOFFSETSTORE_H__
-
-#include "OffsetStore.h"
 #include <map>
 #include <string>
 #include <set>
+
+#include "RocketMQClient.h"
+#include "OffsetStore.h"
 #include "MessageQueue.h"
 #include "AtomicValue.h"
+#include "Mutex.h"
 
-class MQClientFactory;
-class MessageQueue;
-
-/**
-* 消费进度存储到Consumer本地
-* 
-*/
-class LocalFileOffsetStore : public OffsetStore
+namespace rmq
 {
-public:
-	LocalFileOffsetStore(MQClientFactory* pMQClientFactory, const std::string& groupName);
+    class MQClientFactory;
+    class MessageQueue;
+    class OffsetSerializeWrapper;
 
-	void load();
-	void updateOffset(MessageQueue& mq, long long offset, bool increaseOnly);
-	long long readOffset(MessageQueue& mq, ReadOffsetType type);
-	void persistAll(std::set<MessageQueue>& mqs);
-	void persist(MessageQueue& mq);
-	void removeOffset(MessageQueue& mq);
+    class LocalFileOffsetStore : public OffsetStore
+    {
+    public:
+        LocalFileOffsetStore(MQClientFactory* pMQClientFactory, const std::string& groupName);
 
-private:
-	MQClientFactory* m_pMQClientFactory;
-	std::string m_groupName;
-	std::string m_storePath;// 本地Offset存储路径
-	std::map<MessageQueue, AtomicLong> m_offsetTable;
-};
+        void load();
+        void updateOffset(const MessageQueue& mq, long long offset, bool increaseOnly);
+        long long readOffset(const MessageQueue& mq, ReadOffsetType type);
+        void persistAll(std::set<MessageQueue>& mqs);
+        void persist(const MessageQueue& mq);
+        void removeOffset(const MessageQueue& mq) ;
+        std::map<MessageQueue, long long> cloneOffsetTable(const std::string& topic);
+
+    private:
+        OffsetSerializeWrapper* readLocalOffset();
+        OffsetSerializeWrapper* readLocalOffsetBak();
+
+    private:
+        MQClientFactory* m_pMQClientFactory;
+        std::string m_groupName;
+        std::string m_storePath;
+        std::map<MessageQueue, kpr::AtomicLong> m_offsetTable;
+        kpr::RWMutex m_tableMutex;
+    };
+}
 
 #endif

@@ -13,14 +13,22 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 */
-#if!defined __THREADPOOLWORK_H__
+#ifndef __THREADPOOLWORK_H__
 #define __THREADPOOLWORK_H__
 
-class ThreadPoolWork
+#include "RefHandle.h"
+
+namespace kpr
+{
+
+class ThreadPoolWork : public kpr::RefCount
 {
 public:
-	virtual ~ThreadPoolWork() {}
-	virtual void Do()=0;
+    virtual ~ThreadPoolWork() {}
+    virtual void Do() = 0;
 };
+typedef kpr::RefHandleT<ThreadPoolWork> ThreadPoolWorkPtr;
+
+}
 
 #endif

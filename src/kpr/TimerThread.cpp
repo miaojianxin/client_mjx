@@ -19,163 +19,168 @@
 
 namespace kpr
 {
-	unsigned int TimerThread::s_nextTimerID = 0;
+unsigned int TimerThread::s_nextTimerID = 0;
 
-	TimerThread::TimerThread(const char* name, unsigned int checklnterval)
-		:kpr::Thread(name),m_closed(false),m_checkInterval(checklnterval)
-	{
-	}
+TimerThread::TimerThread(const char* name, unsigned int checklnterval)
+    : kpr::Thread(name), m_closed(false), m_checkInterval(checklnterval)
+{
+}
 
-	TimerThread::~TimerThread()
-	{
-	}
+TimerThread::~TimerThread()
+{
+}
 
-	void TimerThread::Run()
-	{
-		unsigned long long lastCheckTime = GetCurrentTimeMillis();
-		unsigned long long currentCheckTime = lastCheckTime;
+void TimerThread::Run()
+{
+    unsigned long long lastCheckTime = KPRUtil::GetCurrentTimeMillis();
+    unsigned long long currentCheckTime = lastCheckTime;
 
-		while (!m_closed)
-		{
-			currentCheckTime = GetCurrentTimeMillis();
-			unsigned int elapse = (unsigned int)(currentCheckTime - lastCheckTime);
+    while (!m_closed)
+    {
+        currentCheckTime = KPRUtil::GetCurrentTimeMillis();
+        unsigned int elapse = (unsigned int)(currentCheckTime - lastCheckTime);
 
-			std::list<TimerInfo> timeList;
+        std::list<TimerInfo> timeList;
 
-			CheckTimeOut(elapse,timeList);
+        CheckTimeOut(elapse, timeList);
 
-			if (!timeList.empty())
-			{
-				std::list<TimerInfo>::iterator it = timeList.begin();
-				for (; it != timeList.end(); it++)
-				{
-					it->pTimerHandler->OnTimeOut(it->id);
-				}
-			}
+        if (!timeList.empty())
+        {
+            std::list<TimerInfo>::iterator it = timeList.begin();
+            for (; it != timeList.end(); it++)
+            {
+            	try
+            	{
+                	it->pTimerHandler->OnTimeOut(it->id);
+                }
+                catch(...)
+                {
+                	RMQ_ERROR("TimerThread[%s] OnTimeOut exception", GetName());
+                }
+            }
+        }
 
-			unsigned long long checkEndTime = GetCurrentTimeMillis();
-			int sleepTime = m_checkInterval - (int)(checkEndTime -currentCheckTime);
-			if (sleepTime < 0)
-			{
-				sleepTime = 0;
-			}
+        unsigned long long checkEndTime = KPRUtil::GetCurrentTimeMillis();
+        int sleepTime = m_checkInterval - (int)(checkEndTime - currentCheckTime);
+        if (sleepTime < 0)
+        {
+            sleepTime = 0;
+        }
 
-			lastCheckTime = currentCheckTime;
+        lastCheckTime = currentCheckTime;
 
-			try
-			{
-				kpr::ScopedLock<kpr::Monitor> lock(*this);
-				Wait(sleepTime);
-			}
-			catch (...)
-			{
-			}
-		}
-	}
+        try
+        {
+            kpr::ScopedLock<kpr::Monitor> lock(*this);
+            Wait(sleepTime);
+        }
+        catch (...)
+        {
+        }
+    }
+}
 
-	void TimerThread::Close()
-	{
-		m_closed = true;
-		kpr::ScopedLock<kpr::Monitor> lock(*this);
-		Notify();
-	}
+void TimerThread::Stop()
+{
+    m_closed = true;
+    kpr::ScopedLock<kpr::Monitor> lock(*this);
+    Notify();
+}
 
-	unsigned int TimerThread::RegisterTimer(unsigned int initialDelay,unsigned int elapse, TimerHandler *pHandler, bool persistent)
-	{
-		TimerInfo info;
-		info.elapse = elapse;
-		info.outTime = 0-initialDelay;
-		info.pTimerHandler = pHandler;
-		info.persistent = persistent;
+unsigned int TimerThread::RegisterTimer(unsigned int initialDelay, unsigned int elapse, TimerHandler* pHandler, bool persistent)
+{
+    TimerInfo info;
+    info.elapse = elapse;
+    info.outTime = elapse - initialDelay;
+    info.pTimerHandler = pHandler;
+    info.persistent = persistent;
 
-		kpr::ScopedLock<kpr::Mutex> lock(m_mutex); 
+    kpr::ScopedLock<kpr::Mutex> lock(m_mutex);
+    info.id = GetNextTimerID();
+    m_timers[info.id] = info;
 
-		info.id = GetNextTimerID();
+    return info.id;
+}
 
-		m_timers[info.id] = info;
+bool TimerThread::UnRegisterTimer(unsigned int timerId)
+{
+    bool result = false;
+    kpr::ScopedLock<kpr::Mutex> lock(m_mutex);
+    std::map<unsigned int, TimerInfo>::iterator it = m_timers.find(timerId);
+    if (it != m_timers.end())
+    {
+        m_timers.erase(it);
+        result = true;
+    }
 
-		return info.id;
-	}
+    return result;
+}
 
-	bool TimerThread::UnRegisterTimer(unsigned int timerId)
-	{
-		bool result = false;
-		kpr::ScopedLock<kpr::Mutex> lock(m_mutex);
-		std::map<unsigned int, TimerInfo>::iterator it = m_timers.find(timerId);
-		if (it != m_timers.end())
-		{
-			m_timers.erase(it);
-			result = true;
-		}
+bool TimerThread::ResetTimer(unsigned int timerId)
+{
+    bool result = false;
+    kpr::ScopedLock<kpr::Mutex> lock(m_mutex);
+    std::map<unsigned int, TimerInfo>::iterator it = m_timers.find(timerId);
+    if (it != m_timers.end())
+    {
+        if (it->second.persistent)
+        {
+            it->second.outTime = it->second.elapse;
+        }
+        else
+        {
+            it->second.outTime = 0;
+        }
 
-		return result;
-	}
+        result = true;
+    }
 
-	bool TimerThread::ResetTimer(unsigned int timerId)
-	{
-		bool result = false;
-		kpr::ScopedLock<kpr::Mutex> lock(m_mutex);
-		std::map<unsigned int, TimerInfo>::iterator it = m_timers.find(timerId);
-		if (it != m_timers.end())
-		{
-			if (it->second.persistent)
-			{
-				it->second.outTime = it->second.elapse;
-			}
-			else
-			{
-				it->second.outTime = 0;
-			}
+    return result;
+}
 
-			result = true;
-		}
+bool TimerThread::CheckTimeOut(unsigned int elapse, std::list<TimerInfo>& timerList)
+{
+    bool result = false;
+    timerList.clear();
 
-		return result;
-	}
+    kpr::ScopedLock<kpr::Mutex> lock(m_mutex);
+    if (!m_timers.empty())
+    {
+        std::map<unsigned int, TimerInfo>::iterator it = m_timers.begin();
+        while (it != m_timers.end())
+        {
+            it->second.outTime += elapse;
 
-	bool TimerThread::CheckTimeOut(unsigned int elapse, std::list<TimerInfo> &timerList)
-	{
-		bool result = false;
-		timerList.clear();
+            if (it->second.outTime >= int(it->second.elapse))
+            {
+                timerList.push_back(it->second);
 
-		kpr::ScopedLock<kpr::Mutex> lock(m_mutex);
-		if (!m_timers.empty())
-		{
-			std::map<unsigned int, TimerInfo>::iterator it = m_timers.begin();
-			while (it != m_timers.end())
-			{
-				it->second.outTime += elapse;
+                if (it->second.persistent)
+                {
+                    it->second.outTime = 0;
+                    ++it;
+                }
+                else
+                {
+                    std::map<unsigned int, TimerInfo>::iterator it1 = it;
+                    ++it;
+                    m_timers.erase(it1);
+                }
+            }
+            else
+            {
+                ++it;
+            }
+        }
 
-				if (it->second.outTime >= int(it->second.elapse))
-				{
-					timerList.push_back(it->second);
+        result = true;
+    }
 
-					if (it->second.persistent)
-					{
-						it->second.outTime = 0;
-						++it;
-					}
-					else
-					{
-						std::map<unsigned int, TimerInfo>::iterator it1 = it;
-						++it;
-						m_timers.erase(it1);
-					}
-				}
-				else
-				{
-					++it;
-				}
-			}
+    return result;
+}
 
-			result = true;
-		}
-
-		return result;
-	}
-
-	unsigned int TimerThread::GetNextTimerID()
-	{
-		return ++s_nextTimerID;
-	}
+unsigned int TimerThread::GetNextTimerID()
+{
+    return ++s_nextTimerID;
+}
 }

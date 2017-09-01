@@ -14,7 +14,7 @@
 * limitations under the License.
 */
 
-#if!defined __MESSAGEQUEUESELECTOR_H__
+#ifndef __MESSAGEQUEUESELECTOR_H__
 #define __MESSAGEQUEUESELECTOR_H__
 
 #include <stdlib.h>
@@ -28,81 +28,69 @@
 #include "MessageQueue.h"
 #include "UtilAll.h"
 
-class Message;
-
-/**
-* 队列选择器
-*
-*/
-class MessageQueueSelector
+namespace rmq
 {
-public:
-	virtual ~MessageQueueSelector() {}
-	virtual MessageQueue* select(std::vector<MessageQueue*>& mqs, const Message& msg, void* arg)=0;
-};
+    class Message;
 
-/**
-* 发送消息，随机选择队列
-*
-*/
-class SelectMessageQueueByRandoom :public MessageQueueSelector
-{
-public:
-	MessageQueue* select(std::vector<MessageQueue*>& mqs, const Message& msg, void* arg)
-	{
-		srand( (unsigned)time( NULL ));
-		int Value = rand();
-		value = value % mqs.size();
-		return mqs[value];
-	}
-};
+    class MessageQueueSelector
+    {
+    public:
+        virtual ~MessageQueueSelector() {}
+        virtual MessageQueue* select(std::vector<MessageQueue>& mqs, const Message& msg, void* arg) = 0;
+    };
 
-/**
-* 使用哈希算法来选择队列，顺序消息通常都这样做<br>
-*
-*/
-class SelectMessageQueueByHash : public MessageQueueSelector
-{
-public:
-	MessageQueue* select(std::vector<MessageQueue*>& mqs, const Message& msg, void* arg,int len)
-	{
-		int value = UtilAll.hashCode(arg,len);
-		if (value < 0)
-		{
-			value = abs(value);
-		}
+    class SelectMessageQueueByRandoom : public MessageQueueSelector
+    {
+    public:
+        MessageQueue* select(std::vector<MessageQueue>& mqs, const Message& msg, void* arg)
+        {
+            srand((unsigned)time(NULL));
+            int value = rand();
+            value = value % mqs.size();
+            return &(mqs.at(value));
+        }
+    };
 
-		value = value % mqs.size();
-		return mqs.at(value);
-	}
-};
+    class SelectMessageQueueByHash : public MessageQueueSelector
+    {
+    public:
+        MessageQueue* select(std::vector<MessageQueue>& mqs, const Message& msg, void* arg)
+        {
+			std::string* sArg = (std::string*)arg;
+            int value = UtilAll::hashCode(sArg->c_str(), sArg->size());
+            if (value < 0)
+            {
+                value = abs(value);
+            }
+
+            value = value % mqs.size();
+            return &(mqs.at(value));
+        }
+    };
 
 
-/**
-* 根据机房来选择发往哪个队列，支付宝逻辑机房使用
-*
-*/
-class SelectMessageQueueByMachineRoom : public MessageQueueSelector
-{
-public:
-	MessageQueue* select(std::vector<MessageQueue*>& mqs, const Message& msg, void* arg)
-	{
-		// TODO Auto-generated method stub
-		return null;
-	}
+    class SelectMessageQueueByMachineRoom : public MessageQueueSelector
+    {
+    public:
+        MessageQueue* select(std::vector<MessageQueue>& mqs, const Message& msg, void* arg)
+        {
+            // TODO Auto-generated method stub
+            return NULL;
+        }
 
-	std::set<std::string> getConsumeridcs()
-	{
-		return m_consumeridcs;
-	}
+        std::set<std::string> getConsumeridcs()
+        {
+            return m_consumeridcs;
+        }
 
-	void setConsumeridcs(const std::set<std::string>& consumeridcs)
-	{
-		m_consumeridcs = consumeridcs;
-	}
+        void setConsumeridcs(const std::set<std::string>& consumeridcs)
+        {
+            m_consumeridcs = consumeridcs;
+        }
 
-private:
-	std::set<std::string> m_consumeridcs;
-};
+    private:
+        std::set<std::string> m_consumeridcs;
+    };
+}
 
 #endif

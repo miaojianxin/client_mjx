@@ -14,57 +14,64 @@
 * limitations under the License.
 */
 
-#if!defined __RESPONSEFUTURE_H__
+#ifndef __RESPONSEFUTURE_H__
 #define __RESPONSEFUTURE_H__
 
+#include <string>
 #include "AtomicValue.h"
-#include "RefCount.h"
-
-class InvokeCallback;
-class RemotingCommand;
+#include "RefHandle.h"
 
 namespace kpr
 {
-	class Monitor;
+class Monitor;
+class Semaphore;
 }
 
-/**
-* 异步请求应答封装
-*
-*/
-class ResponseFuture : public kpr::RefCount
+namespace rmq
 {
-public:
-	ResponseFuture(int requestCode,int opaque, int timeoutMillis, InvokeCallback* pInvokeCallback,bool block);
-	~ResponseFuture();
-	void executeInvokeCallback();
-	void release();
-	bool isTimeout();
-	RemotingCommand* waitResponse(int timeoutMillis);
-	void putResponse(RemotingCommand* pResponseCommand);
-	long long getBeginTimestamp();
-	bool isSendRequestOK();
-	void setSendRequestOK(bool sendRequestOK);
-	int getRequestCode();
-	void setRequestCode(int requestCode);
-	long long getTimeoutMillis();
-	InvokeCallback* getInvokeCallback();
-	RemotingCommand* getResponseCommand();
-	void setResponseCommand(RemotingCommand* pResponseCommand);
-	int getOpaque();
+    class InvokeCallback;
+    class RemotingCommand;
 
-private:
-	RemotingCommand* m_pResponseCommand;
-	volatile bool m_sendRequestOK;
-	int m_requestCode;
-	int m_opaque;
-	long long m_timeoutMillis;
-	InvokeCallback* m_pInvokeCallback;
-	long long m_beginTimestamp;
-	kpr::Monitor* m_pMonitor;
-	bool m_notifyFlag;
-	AtomicInteger m_exec;
-	//TODO 确认跟java版的一致性
-};
+    class ResponseFuture : public kpr::RefCount
+    {
+    public:
+        ResponseFuture(int requestCode, int opaque, int timeoutMillis, InvokeCallback* pInvokeCallback,
+			bool block, kpr::Semaphore* pSem);
+        ~ResponseFuture();
+        void executeInvokeCallback();
+		void release();
+        bool isTimeout();
+        RemotingCommand* waitResponse(int timeoutMillis);
+        void putResponse(RemotingCommand* pResponseCommand);
+        long long getBeginTimestamp();
+        bool isSendRequestOK();
+        void setSendRequestOK(bool sendRequestOK);
+        int getRequestCode();
+        void setRequestCode(int requestCode);
+        long long getTimeoutMillis();
+        InvokeCallback* getInvokeCallback();
+        RemotingCommand* getResponseCommand();
+        void setResponseCommand(RemotingCommand* pResponseCommand);
+        int getOpaque();
+		std::string toString() const;
+
+    private:
+        RemotingCommand* m_pResponseCommand;
+        volatile bool m_sendRequestOK;
+        int m_requestCode;
+        int m_opaque;
+        long long m_timeoutMillis;
+        InvokeCallback* m_pInvokeCallback;
+        long long m_beginTimestamp;
+        kpr::Monitor* m_pMonitor;
+        bool m_notifyFlag;
+
+        kpr::AtomicInteger m_exec;
+
+		kpr::Semaphore* m_pSemaphore;
+		kpr::AtomicInteger m_released;
+    };
+	typedef kpr::RefHandleT<ResponseFuture> ResponseFuturePtr;
+}
 
 #endif

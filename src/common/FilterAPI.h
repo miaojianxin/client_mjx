@@ -14,7 +14,7 @@
 * limitations under the License.
 */
 
-#if!defined __FILTERAPI_H__
+#ifndef __FILTERAPI_H__
 #define __FILTERAPI_H__
 
 #include <string>
@@ -22,48 +22,51 @@
 #include "UtilAll.h"
 #include "MQClientException.h"
 
-class FilterAPI
+namespace rmq
 {
-public:
-	static SubscriptionData* buildSubscriptionData(const std::string topic, const std::string& subString)
-	{
-		SubscriptionData* subscriptionData = new SubscriptionData();
-		subscriptionData->setTopic(topic);
-		subscriptionData->setSubString(subString);
+    class FilterAPI
+    {
+    public:
+        static SubscriptionData* buildSubscriptionData(const std::string topic, const std::string& subString)
+        {
+            SubscriptionData* subscriptionData = new SubscriptionData();
+            subscriptionData->setTopic(topic);
+            subscriptionData->setSubString(subString);
 
-		if (subString.empty() || subString == SubscriptionData::SUB_ALL)
-		{
-			subscriptionData->setSubString(SubscriptionData::SUB_ALL);
-		}
-		else
-		{
-			std::vector<std::string> out;
+            if (subString.empty() || subString == SubscriptionData::SUB_ALL)
+            {
+                subscriptionData->setSubString(SubscriptionData::SUB_ALL);
+            }
+            else
+            {
+                std::vector<std::string> out;
 
-			UtilAll::Split(out,subString,"||");
+                UtilAll::Split(out, subString, "||");
 
-			if (out.empty())
-			{
-				THROW_MQEXCEPTION(MQClientException,"FilterAPI subString split error",-1);
-			}
+                if (out.empty())
+                {
+                    THROW_MQEXCEPTION(MQClientException, "FilterAPI subString split error", -1);
+                }
 
-			for (size_t i=0;i< out.size();i++)
-			{
-				std::string tag = out[i];
-				if (!tag.empty())
-				{
-					std::string trimString = UtilAll::Trim(tag);
+                for (size_t i = 0; i < out.size(); i++)
+                {
+                    std::string tag = out[i];
+                    if (!tag.empty())
+                    {
+                        std::string trimString = UtilAll::Trim(tag);
 
-					if (!trimString.empty())
-					{
-						subscriptionData->getTagsSet().insert(trimString);
-						subscriptionData->getCodeSet().insert(UtilAll::stringHashCode(trimString.c_str(),trimString.length()));
-					}
-				}
-			}
-		}
+                        if (!trimString.empty())
+                        {
+                            subscriptionData->getTagsSet().insert(trimString);
+                            subscriptionData->getCodeSet().insert(UtilAll::hashCode(trimString));
+                        }
+                    }
+                }
+            }
 
-		return subscriptionData;
-	}
-};
+            return subscriptionData;
+        }
+    };
+}
 
 #endif
